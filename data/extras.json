@@ -1,0 +1,80 @@
+[
+ {
+  "dex": 374,
+  "name": "Steven's Beldum",
+  "set": "Destined Rivals",
+  "num": "143",
+  "img": "https://images.pokemontcg.io/sv10/143.png"
+ },
+ {
+  "dex": 653,
+  "name": "Fennekin",
+  "set": "Chaos Rising",
+  "num": "11",
+  "img": "https://images.pokemontcg.io/me4/11.png"
+ },
+ {
+  "dex": 94,
+  "name": "Gengar-EX",
+  "set": "Phantom Forces",
+  "num": "114",
+  "rarity": "Full Art Ultra Rare",
+  "img": "https://images.pokemontcg.io/xy4/114.png"
+ },
+ {
+  "dex": 801,
+  "name": "Magearna",
+  "set": "XY-P Promo (JP)",
+  "num": "268",
+  "rarity": "Full Art Promo",
+  "img": ""
+ },
+ {
+  "dex": 802,
+  "name": "Marshadow & Machamp-GX",
+  "set": "Unbroken Bonds",
+  "num": "199",
+  "rarity": "Alternate Art",
+  "img": "https://images.pokemontcg.io/sm10/199.png"
+ },
+ {
+  "dex": 68,
+  "name": "Marshadow & Machamp-GX",
+  "set": "Unbroken Bonds",
+  "num": "199",
+  "rarity": "Alternate Art",
+  "img": "https://images.pokemontcg.io/sm10/199.png"
+ },
+ {
+  "dex": 804,
+  "name": "Naganadel & Guzzlord-GX",
+  "set": "Cosmic Eclipse",
+  "num": "224",
+  "rarity": "Alternate Art",
+  "img": "https://images.pokemontcg.io/sm12/224.png"
+ },
+ {
+  "dex": 799,
+  "name": "Naganadel & Guzzlord-GX",
+  "set": "Cosmic Eclipse",
+  "num": "224",
+  "rarity": "Alternate Art",
+  "img": "https://images.pokemontcg.io/sm12/224.png"
+ },
+ {
+  "dex": 448,
+  "name": "Lucario & Melmetal-GX",
+  "set": "SM Black Star Promos",
+  "num": "SM192",
+  "rarity": "Alternate Art Promo",
+  "img": "https://images.pokemontcg.io/smp/SM192.png"
+ },
+ {
+  "dex": 809,
+  "name": "Lucario & Melmetal-GX",
+  "set": "SM Black Star Promos",
+  "num": "SM192",
+  "rarity": "Alternate Art Promo",
+  "img": "https://images.pokemontcg.io/smp/SM192.png"
+ }
+]

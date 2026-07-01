@@ -180,7 +180,7 @@ let sT;function save(){clearTimeout(sT);sT=setTimeout(async()=>{
 async function saveUsp(){await store.set("usp_v1",JSON.stringify(userSpecies));}
 
 /* ---- montar dataset de trabalho = BASE + atualizações incorporadas ---- */
-const dedup=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").replace(/\D/g,"");
+const dedup=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 function buildWorking(){
   const map=new Map();
   BASE.forEach(s=>map.set(s.dexn,{species:s.species,dex:s.dex,region:s.region,dexn:s.dexn,cards:s.cards.map(c=>({...c}))}));
@@ -328,13 +328,18 @@ async function updateSets(){
       if(cards){
         for(const c of cards){
           if(c.supertype!=="Pokémon")continue;
-          if(c.rarity!=="Illustration Rare"&&c.rarity!=="Special Illustration Rare")continue;
-          const dexn=(c.nationalPokedexNumbers||[])[0];if(!dexn)continue;
-          const dm=DEXMAP[dexn]||[c.name,"—"];
+          const KEEPR=["Illustration Rare","Special Illustration Rare","Ultra Rare","Hyper Rare","Shiny Ultra Rare","Black White Rare","Mega Hyper Rare","MEGA_ATTACK_RARE"];
+          if(!KEEPR.includes(c.rarity))continue;
+          const dexs=c.nationalPokedexNumbers||[];if(!dexs.length)continue;
           const card={name:c.name,set:st.name,num:String(c.number),
             img:"https://images.pokemontcg.io/"+st.id+"/"+c.number+".png",rarity:c.rarity};
-          const exists=extra.some(e=>e.dexn===dexn&&dedup(e.card)===dedup(card));
-          if(!exists){extra.push({dexn,species:dm[0],region:dm[1],dex:"#"+String(dexn).padStart(4,"0"),card});addCards++;freshDex.add(dexn);}
+          let counted=false;
+          for(const dexn of dexs){
+            const dm=DEXMAP[dexn]||[c.name,"—"];
+            const exists=extra.some(e=>e.dexn===dexn&&dedup(e.card)===dedup(card));
+            if(!exists){extra.push({dexn,species:dm[0],region:dm[1],dex:"#"+String(dexn).padStart(4,"0"),card});freshDex.add(dexn);counted=true;}
+          }
+          if(counted)addCards++;
         }
       }
       updatedSets.push(st.id);

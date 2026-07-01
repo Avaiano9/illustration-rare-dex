@@ -15,7 +15,9 @@ import json, os, re, urllib.request
 ROOT   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA   = os.path.join(ROOT, "data")
 RAW    = "https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/"
-KEEP   = {"Illustration Rare", "Special Illustration Rare"}
+KEEP   = {"Illustration Rare", "Special Illustration Rare", "Ultra Rare",
+          "Hyper Rare", "Shiny Ultra Rare", "Black White Rare",
+          "Mega Hyper Rare", "MEGA_ATTACK_RARE"}
 CUTOFF = "2023/01/01"   # IR/SIR so existem a partir da era Scarlet & Violet
 
 def load(name, default):
@@ -32,7 +34,7 @@ def get_json(url):
 
 def dedup(c):
     return (str(c.get("set","")).lower().replace(" ","") + "|" +
-            re.sub(r"\D", "", str(c.get("num",""))))
+            re.sub(r"[^A-Z0-9]", "", str(c.get("num","")).upper()))
 
 def main():
     tracker = load("tracker.json", [])
@@ -67,10 +69,9 @@ def main():
                 continue
             if c.get("rarity") not in KEEP:
                 continue
-            dexn = (c.get("nationalPokedexNumbers") or [None])[0]
-            if not dexn:
+            dexs = c.get("nationalPokedexNumbers") or []
+            if not dexs:
                 continue
-            name, region = dexmap.get(str(dexn), [c["name"], "—"])
             card = {
                 "name": c["name"],
                 "set": sname,
@@ -78,14 +79,19 @@ def main():
                 "img": f"https://images.pokemontcg.io/{sid}/{c.get('number','')}.png",
                 "rarity": c["rarity"],
             }
-            sp = by_dex.get(dexn)
-            if sp is None:
-                sp = {"species": name, "dex": f"#{int(dexn):04d}",
-                      "region": region, "dexn": int(dexn), "cards": []}
-                by_dex[dexn] = sp
-                added_species += 1
-            if not any(dedup(x) == dedup(card) for x in sp["cards"]):
-                sp["cards"].append(card)
+            counted = False
+            for dexn in dexs:
+                name, region = dexmap.get(str(dexn), [c["name"], "—"])
+                sp = by_dex.get(dexn)
+                if sp is None:
+                    sp = {"species": name, "dex": f"#{int(dexn):04d}",
+                          "region": region, "dexn": int(dexn), "cards": []}
+                    by_dex[dexn] = sp
+                    added_species += 1
+                if not any(dedup(x) == dedup(card) for x in sp["cards"]):
+                    sp["cards"].append(dict(card))
+                    counted = True
+            if counted:
                 added_cards += 1
 
         known.add(sid)
