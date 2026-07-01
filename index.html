@@ -132,6 +132,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
   <div class="tools">
     <button class="tbtn upd" id="btnUpd" title="Buscar sets recém-lançados agora (o site também atualiza sozinho toda semana)">Atualizar agora</button>
     <button class="tbtn add" id="btnAddSp" title="Criar um quadrinho para um Pokémon que ainda não está na lista">＋ Pokémon</button>
+    <button class="tbtn" id="btnTxt" title="Baixar a lista das cartas que faltam no formato de consulta por lista (para estimar preços no TCG Collector / PriceCharting)">Faltantes .txt</button>
     <button class="tbtn" id="btnExport">Exportar</button>
     <button class="tbtn" id="btnImport">Importar</button>
     <button class="tbtn" id="btnReset">Zerar</button>
@@ -158,7 +159,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-let BASE=[],DEXMAP={},KNOWN_SETS=[];const UPDATED="30/06/2026";
+let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={};const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
 let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[];
@@ -386,6 +387,29 @@ ovAdd.addEventListener("click",e=>{if(e.target===ovAdd)closeAdd();});
 let aqT;aspq.addEventListener("input",()=>{clearTimeout(aqT);aqT=setTimeout(renderAddList,100);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovAdd.classList.contains("on"))closeAdd();});
 
+/* ---------- BOTÃO FALTANTES .txt: lista no formato de consulta por lista ---------- */
+function fmtLine(card){
+  const num=String(card.num||"");
+  if(!/^\d+$/.test(num))return null;               // ignora TG/GG/promos sem número limpo
+  const tot=SET_TOTALS[card.set];
+  if(!tot)return null;
+  return `1 ${card.name} (${num.padStart(3,"0")}/${tot}) [QUALIDADE=NM][IDIOMA=EN]`;
+}
+function genMissingTxt(){
+  const lines=[];let skipped=0;
+  DATA.forEach(s=>{
+    if(isOwned(s))return;                            // só os que faltam
+    let rep=null;
+    for(const c of s.cards){rep=fmtLine(c);if(rep)break;}
+    if(rep)lines.push(rep);else skipped++;
+  });
+  if(!lines.length){toast("Nada a exportar — nenhuma carta faltante com número/total conhecido.");return;}
+  const blob=new Blob([lines.join("\n")+"\n"],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="faltantes-para-precos.txt";a.click();
+  toast(`Lista gerada: ${lines.length} carta(s)${skipped?` · ${skipped} sem nº/total omitida(s)`:""}`);
+}
+document.getElementById("btnTxt").onclick=genMissingTxt;
+
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));filterStatus=b.dataset.st;render();});
 let qT;document.getElementById("q").addEventListener("input",e=>{query=e.target.value;clearTimeout(qT);qT=setTimeout(render,120);});
 btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:4,owned,custom,extra,updatedSets,userSpecies},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
@@ -415,6 +439,7 @@ async function loadData(){
     ]);
     BASE=t;DEXMAP=d;KNOWN_SETS=k;
     try{const ex=await fetch("./data/extras.json",{cache:"no-store"});if(ex.ok)foldExtras(await ex.json());}catch(_){}
+    try{const st=await fetch("./data/set_totals.json",{cache:"no-store"});if(st.ok)SET_TOTALS=await st.json();}catch(_){}
   }catch(e){
     grid.innerHTML=`<div class="empty">Não consegui carregar os dados (data/tracker.json). Se abriu o arquivo direto do disco, publique no GitHub Pages ou rode um servidor local.</div>`;
     throw e;
