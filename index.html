@@ -32,6 +32,20 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .tbtn.upd{color:#1a1608;background:var(--gold);border-color:var(--gold);font-weight:700}
 .tbtn.upd:hover{filter:brightness(1.05);color:#1a1608}
 .tbtn.upd.spin{background:var(--panel);color:var(--ink2);font-weight:400}
+.tbtn.add{color:var(--gold);border-color:var(--gold-line);background:var(--panel)}
+.tbtn.add:hover{color:#1a1608;background:var(--gold);border-color:var(--gold)}
+.addsp{max-width:560px}
+.aspsearch{padding:16px 22px 6px}
+.aspsearch input{width:100%;font-family:var(--disp);font-size:15px;color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:12px 14px;outline:none;transition:.15s}
+.aspsearch input:focus{border-color:var(--gold-line);box-shadow:0 0 0 3px var(--gold-soft)}
+.asplist{display:flex;flex-direction:column;gap:6px;padding:8px 22px;max-height:52vh;overflow:auto}
+.aspitem{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font-family:var(--disp);font-size:14px;font-weight:600;cursor:pointer;transition:.14s;text-align:left}
+.aspitem:hover{border-color:var(--gold);background:var(--panel2)}
+.aspitem .dx{font-family:var(--mono);font-size:10.5px;font-weight:400;color:var(--ink3);white-space:nowrap}
+.asphint{font-family:var(--mono);font-size:10.5px;color:var(--ink3);letter-spacing:.03em;padding:4px 22px 20px}
+.rmrow{padding:6px 22px 20px}
+.rmsp{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink3);background:none;border:1px solid var(--line2);border-radius:8px;padding:8px 12px;cursor:pointer;transition:.15s}
+.rmsp:hover{color:#e05a5a;border-color:#e05a5a66}
 .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:16px}
 .search{position:relative;flex:1;min-width:230px}
 .search input{width:100%;font-family:var(--disp);font-size:15px;color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:12px 14px 12px 40px;outline:none;transition:.15s}
@@ -57,6 +71,10 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .imgbox img.failed{display:none}
 .card.miss .imgbox img{filter:grayscale(1) brightness(.62) contrast(.92);opacity:.62}
 .card.miss:hover .imgbox img{filter:grayscale(.15) brightness(.9);opacity:.9}
+.cback{width:100%;height:100%;display:grid;place-items:center;background:radial-gradient(circle at 50% 34%,#2c3a66 0%,#1a2340 58%,#0e1424 100%)}
+.cback svg{width:52%;height:52%;filter:drop-shadow(0 2px 6px #0007)}
+.card.miss .cback{filter:brightness(.72) saturate(.85)}
+.card.miss:hover .cback{filter:brightness(.95)}
 .noimg{font-family:var(--mono);font-size:10.5px;color:var(--ink3);text-align:center;padding:10px;line-height:1.4}
 .multi{position:absolute;top:7px;right:7px;font-family:var(--mono);font-size:10px;font-weight:700;background:#0d0f14cc;color:var(--ink2);border:1px solid var(--line2);border-radius:7px;padding:3px 6px;backdrop-filter:blur(4px)}
 .chk{position:absolute;top:7px;left:7px;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:#0d0f14cc;border:1px solid var(--line2);backdrop-filter:blur(4px);transition:.15s;z-index:3}
@@ -113,6 +131,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
     <div class="pmeta"><div class="pbig"><b id="ownN">0</b> / <span id="totN">618</span> Pokémon</div><div class="pbar"><i id="pbar"></i></div></div></div>
   <div class="tools">
     <button class="tbtn upd" id="btnUpd" title="Buscar sets recém-lançados agora (o site também atualiza sozinho toda semana)">Atualizar agora</button>
+    <button class="tbtn add" id="btnAddSp" title="Criar um quadrinho para um Pokémon que ainda não está na lista">＋ Pokémon</button>
     <button class="tbtn" id="btnExport">Exportar</button>
     <button class="tbtn" id="btnImport">Importar</button>
     <button class="tbtn" id="btnReset">Zerar</button>
@@ -128,13 +147,23 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
   <div class="foot" id="foot"></div>
 </div>
 <div class="ov" id="ov"><div class="modal" id="modal"></div></div>
+<div class="ov" id="ovAdd"><div class="modal addsp">
+  <div class="mhd"><div class="rowx"><div>
+    <div class="dexn">Adicionar Pokémon</div><h2>Criar um quadrinho</h2>
+    <span class="mtag">Escolha um Pokémon que ainda não está na lista</span>
+  </div><button class="close" id="addClose" aria-label="Fechar">✕</button></div></div>
+  <div class="aspsearch"><input id="aspq" placeholder="Digite o nome, ex.: Fennekin…" autocomplete="off"></div>
+  <div class="asplist" id="asplist"></div>
+  <div class="asphint" id="asphint"></div>
+</div></div>
 <div class="toast" id="toast"></div>
 <script>
 let BASE=[],DEXMAP={},KNOWN_SETS=[];const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
-let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[];
+let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[];
 let filterRegion=null,filterStatus="all",query="",freshDex=new Set();
+const CBACK=`<div class="cback" title="Carta de arte rara (marcador)"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#e9edff" stroke="#0f1526" stroke-width="4"/><path d="M50 10a40 40 0 0 1 40 40H10a40 40 0 0 1 40-40z" fill="#c6d2ff"/><path d="M10 50h80" stroke="#0f1526" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="#fff" stroke="#0f1526" stroke-width="5"/></svg></div>`;
 
 /* ---- storage: window.storage (artefato) -> localStorage (offline) -> memória ---- */
 const store={
@@ -147,6 +176,7 @@ const parse=(r,d)=>{ try{ return JSON.parse((r&&r.value)||"")||d; }catch(e){ ret
 let sT;function save(){clearTimeout(sT);sT=setTimeout(async()=>{
   await store.set("owned_v1",JSON.stringify(owned));
   await store.set("custom_v1",JSON.stringify(custom));},250);}
+async function saveUsp(){await store.set("usp_v1",JSON.stringify(userSpecies));}
 
 /* ---- montar dataset de trabalho = BASE + atualizações incorporadas ---- */
 const dedup=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").replace(/\D/g,"");
@@ -158,6 +188,11 @@ function buildWorking(){
     if(!sp){sp={species:e.species,dex:e.dex,region:e.region,dexn:e.dexn,cards:[]};map.set(e.dexn,sp);}
     if(!sp.cards.some(c=>dedup(c)===dedup(e.card))) sp.cards.push(e.card);
   });
+  userSpecies.forEach(u=>{
+    if(map.has(u.dexn))return; // se já existe carta real desse Pokémon, ela prevalece
+    map.set(u.dexn,{species:u.species,dex:u.dex||("#"+String(u.dexn).padStart(4,"0")),region:u.region,dexn:u.dexn,
+      cards:[{name:u.species,set:"",num:"",img:"",rarity:"",placeholder:true}]});
+  });
   DATA=[...map.values()].sort((a,b)=>a.dexn-b.dexn);
   DATA.forEach((s,i)=>s._i=i);
   TOTAL=DATA.length; totN.textContent=TOTAL;
@@ -165,7 +200,8 @@ function buildWorking(){
 
 const combined=s=>s.cards.concat(custom[s.species]||[]);
 const isOwned=s=>Object.prototype.hasOwnProperty.call(owned,s.species);
-const repImg=s=>{const L=combined(s);const idx=isOwned(s)?owned[s.species]:0;return (L[idx]||L[0]||{}).img;};
+const repCard=s=>{const L=combined(s);const idx=isOwned(s)?owned[s.species]:0;return L[idx]||L[0]||{};};
+const repImg=s=>repCard(s).img;
 const ownedCount=()=>Object.keys(owned).length;
 const norm=t=>(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 function imgFail(el){el.classList.add("failed");const ph=document.createElement("div");ph.className="noimg";ph.textContent="imagem indisponível";el.parentNode.appendChild(ph);}
@@ -185,12 +221,13 @@ function buildChips(){
     b.onclick=()=>{filterRegion=filterRegion===r?null:r;render();buildChips();};chips.appendChild(b);});
 }
 function tile(s){
-  const own=isOwned(s),img=repImg(s),n=combined(s).length,multi=n>1;
+  const own=isOwned(s),rc=repCard(s),n=combined(s).length,multi=n>1;
   const el=document.createElement("div");el.className="card "+(own?"owned":"miss")+(freshDex.has(s.dexn)?" fresh":"");el.dataset.i=s._i;
+  const imgHtml=rc.placeholder?CBACK:(rc.img?`<img loading="lazy" decoding="async" src="${rc.img}" alt="${s.species}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`);
   el.innerHTML=`<div class="chk" data-toggle title="${own?'Marcar como faltante':'Marcar como minha'}"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
     ${multi?`<div class="multi">×${n}</div>`:""}
     <div class="rbar" style="--c:var(--r-${s.region})"></div>
-    <div class="imgbox">${img?`<img loading="lazy" decoding="async" src="${img}" alt="${s.species}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`}</div>
+    <div class="imgbox">${imgHtml}</div>
     <div class="meta"><div class="dexn">${s.dex} · ${s.region}</div><div class="name">${s.species}</div></div>`;
   el.querySelector("[data-toggle]").addEventListener("click",e=>{e.stopPropagation();quickToggle(s);});
   el.addEventListener("click",()=>openModal(s));return el;
@@ -217,20 +254,22 @@ function openModal(s){renderModal(s);ovEl.classList.add("on");document.body.styl
 function closeModal(){ovEl.classList.remove("on");document.body.style.overflow="";}
 function renderModal(s){
   const own=isOwned(s),L=combined(s),baseN=s.cards.length;
+  const uadded=s.cards.length===1&&s.cards[0].placeholder;
   modal.innerHTML=`
     <div class="mhd"><div class="rowx"><div>
       <div class="dexn">${s.dex} · ${s.region}</div><h2>${s.species}</h2>
       <span class="mtag"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--r-${s.region})"></span>${own?"Você tem esta espécie":"Ainda falta"}</span>
     </div><button class="close" data-close aria-label="Fechar">✕</button></div></div>
-    <div class="msub">${L.length} carta${L.length>1?"s":""} — clique na que você possui</div>
-    <div class="cards">${L.map((c,i)=>{const isc=i>=baseN;return `
+    <div class="msub">${uadded?"Adicionado por você — marque quando tiver uma carta de arte rara":`${L.length} carta${L.length>1?"s":""} — clique na que você possui`}</div>
+    <div class="cards">${L.map((c,i)=>{const isc=i>=baseN,ph=c.placeholder;return `
       <div class="cc ${own&&owned[s.species]===i?"have":""} ${isc?"custom":""}">
         ${isc?`<button class="del" data-del="${i-baseN}" title="Remover">✕</button><span class="cbadge">MINHA</span>`:""}
-        <div class="ib">${c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`}</div>
-        <div class="cm"><div class="cset">${c.set}</div><div class="cnum">${c.name}${c.num?" · nº "+c.num:""}</div>
+        <div class="ib">${ph?CBACK:(c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`)}</div>
+        <div class="cm"><div class="cset">${ph?"Marcador":c.set}</div><div class="cnum">${ph?"Carta de arte rara":c.name+(c.num?" · nº "+c.num:"")}</div>
         ${c.rarity?`<span class="crar">${c.rarity}</span>`:""}
         <button class="mk" data-card="${i}">${own&&owned[s.species]===i?"✓ Tenho esta":"Marcar como minha"}</button></div>
       </div>`;}).join("")}</div>
+    ${uadded?`<div class="rmrow"><button class="rmsp" data-rmsp>Remover este Pokémon da lista</button></div>`:""}
     <div class="addbox">
       <h4>Tem outra carta que não está na lista?</h4>
       <p>Ex.: um Tauros de Chaos Rising, um promo antigo, uma versão japonesa. Adicione a edição e o número — marca a espécie como sua.</p>
@@ -243,6 +282,13 @@ function renderModal(s){
   modal.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>setCard(s,+b.dataset.card));
   modal.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delCustom(s,+b.dataset.del));
   modal.querySelector("[data-add]").onclick=()=>addCustom(s);
+  const rm=modal.querySelector("[data-rmsp]");if(rm)rm.onclick=()=>removeUserSpecies(s);
+}
+async function removeUserSpecies(s){
+  userSpecies=userSpecies.filter(u=>u.dexn!==s.dexn);
+  delete owned[s.species];delete custom[s.species];
+  await saveUsp();save();closeModal();
+  buildWorking();updProgress();buildChips();render();toast("Removido da lista: "+s.species);
 }
 function addCustom(s){
   const set=document.getElementById("c-set").value.trim();const num=document.getElementById("c-num").value.trim();
@@ -305,13 +351,61 @@ async function updateSets(){
 }
 btnUpd.onclick=updateSets;
 
+/* ---------- BOTÃO + POKÉMON: cria quadrinho para espécie faltante ---------- */
+const ovAdd=document.getElementById("ovAdd"),aspq=document.getElementById("aspq"),
+      asplist=document.getElementById("asplist"),asphint=document.getElementById("asphint");
+function missingList(){
+  const have=new Set(DATA.map(s=>s.dexn));
+  const out=[];
+  for(const k in DEXMAP){const dexn=+k;if(have.has(dexn))continue;const v=DEXMAP[k];out.push({dexn,species:v[0],region:v[1]});}
+  return out.sort((a,b)=>a.dexn-b.dexn);
+}
+function renderAddList(){
+  const q=norm(aspq.value),all=missingList();
+  const list=(q?all.filter(m=>norm(m.species).includes(q)||String(m.dexn).includes(q)):all).slice(0,60);
+  asplist.innerHTML=list.map(m=>`<button class="aspitem" data-dex="${m.dexn}"><span>${m.species}</span><span class="dx">#${String(m.dexn).padStart(4,"0")} · ${m.region}</span></button>`).join("")
+    || `<div class="asphint">Nenhum Pokémon faltante com esse nome.</div>`;
+  asplist.querySelectorAll("[data-dex]").forEach(b=>b.onclick=()=>addSpecies(+b.dataset.dex));
+  asphint.textContent=`${all.length} Pokémon ainda fora da lista${q?` · ${list.length} correspondência(s)`:""}`;
+}
+async function addSpecies(dexn){
+  if(!userSpecies.some(u=>u.dexn===dexn)){
+    const v=DEXMAP[dexn]||DEXMAP[String(dexn)]||["?","—"];
+    userSpecies.push({dexn,species:v[0],region:v[1],dex:"#"+String(dexn).padStart(4,"0")});
+    await saveUsp();
+  }
+  buildWorking();updProgress();buildChips();render();renderAddList();
+  const v=DEXMAP[dexn]||DEXMAP[String(dexn)]||["?"];
+  toast(`Quadrinho criado: ${v[0]} · agora ${TOTAL} Pokémon na lista`);
+}
+function openAdd(){renderAddList();ovAdd.classList.add("on");document.body.style.overflow="hidden";aspq.value="";setTimeout(()=>aspq.focus(),50);renderAddList();}
+function closeAdd(){ovAdd.classList.remove("on");document.body.style.overflow="";}
+document.getElementById("btnAddSp").onclick=openAdd;
+document.getElementById("addClose").onclick=closeAdd;
+ovAdd.addEventListener("click",e=>{if(e.target===ovAdd)closeAdd();});
+let aqT;aspq.addEventListener("input",()=>{clearTimeout(aqT);aqT=setTimeout(renderAddList,100);});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovAdd.classList.contains("on"))closeAdd();});
+
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));filterStatus=b.dataset.st;render();});
 let qT;document.getElementById("q").addEventListener("input",e=>{query=e.target.value;clearTimeout(qT);qT=setTimeout(render,120);});
-btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:3,owned,custom,extra,updatedSets},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
-btnImport.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const j=JSON.parse(rd.result);owned=j.owned||j||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];await store.set("extra_v1",JSON.stringify(extra));await store.set("usets_v1",JSON.stringify(updatedSets));save();buildWorking();updProgress();buildChips();render();toast("Progresso importado");}catch(e){toast("Arquivo inválido");}};rd.readAsText(f);};inp.click();};
+btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:4,owned,custom,extra,updatedSets,userSpecies},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
+btnImport.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const j=JSON.parse(rd.result);owned=j.owned||j||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];userSpecies=j.userSpecies||[];await store.set("extra_v1",JSON.stringify(extra));await store.set("usets_v1",JSON.stringify(updatedSets));await saveUsp();save();buildWorking();updProgress();buildChips();render();toast("Progresso importado");}catch(e){toast("Arquivo inválido");}};rd.readAsText(f);};inp.click();};
 btnReset.onclick=()=>{if(confirm("Zerar o progresso marcado? (Os sets atualizados continuam.)")){owned={};custom={};save();updProgress();buildChips();render();toast("Progresso zerado");}};
 document.getElementById("foot").innerHTML=`<b><span id="footTot">${TOTAL}</span> Pokémon</b> com carta Alt Art · IR · SIR catalogada. Fonte: dataset comunitário Pokémon TCG (GitHub).<br>Este site se atualiza sozinho toda semana via GitHub Actions. O botão <b>Atualizar agora</b> busca sets novíssimos na hora. Seu progresso fica salvo neste navegador/dispositivo — use <b>Exportar/Importar</b> para levar a outro aparelho.`;
 
+function foldExtras(list){
+  if(!Array.isArray(list)||!list.length) return;
+  const map=new Map();BASE.forEach(s=>map.set(s.dexn,s));
+  list.forEach(e=>{
+    const dexn=Number(e.dex!=null?e.dex:e.dexn);if(!dexn)return;
+    const info=DEXMAP[dexn]||DEXMAP[String(dexn)]||[e.species||"?","—"];
+    let sp=map.get(dexn);
+    if(!sp){sp={species:e.species||info[0],dex:"#"+String(dexn).padStart(4,"0"),region:e.region||info[1],dexn:dexn,cards:[]};map.set(dexn,sp);BASE.push(sp);}
+    const card={name:e.name||sp.species,set:e.set||"Promo",num:String(e.num||""),img:e.img||"",rarity:e.rarity||"Promo"};
+    if(!sp.cards.some(c=>dedup(c)===dedup(card))) sp.cards.push(card);
+  });
+  BASE.sort((a,b)=>a.dexn-b.dexn);
+}
 async function loadData(){
   try{
     const [t,d,k]=await Promise.all([
@@ -320,6 +414,7 @@ async function loadData(){
       fetch("./data/known_sets.json",{cache:"no-store"}).then(r=>r.json())
     ]);
     BASE=t;DEXMAP=d;KNOWN_SETS=k;
+    try{const ex=await fetch("./data/extras.json",{cache:"no-store"});if(ex.ok)foldExtras(await ex.json());}catch(_){}
   }catch(e){
     grid.innerHTML=`<div class="empty">Não consegui carregar os dados (data/tracker.json). Se abriu o arquivo direto do disco, publique no GitHub Pages ou rode um servidor local.</div>`;
     throw e;
@@ -331,6 +426,7 @@ async function loadData(){
   custom=parse(await store.get("custom_v1"),{});
   extra=parse(await store.get("extra_v1"),[]);
   updatedSets=parse(await store.get("usets_v1"),[]);
+  userSpecies=parse(await store.get("usp_v1"),[]);
   buildWorking();updProgress();buildChips();render();
 })();
 </script></body></html>
