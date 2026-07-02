@@ -171,7 +171,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={};const UPDATED="30/06/2026";
+let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={};const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
 let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[];
@@ -217,7 +217,17 @@ const repCard=s=>{const L=combined(s);const idx=isOwned(s)?owned[s.species]:0;re
 const repImg=s=>repCard(s).img;
 const ownedCount=()=>Object.keys(owned).length;
 const norm=t=>(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-function imgFail(el){el.classList.add("failed");const ph=document.createElement("div");ph.className="noimg";ph.textContent="imagem indisponível";el.parentNode.appendChild(ph);}
+function imgFail(el){
+  const s=el.dataset.fs,n=el.dataset.fn,m=(s&&IMGMAP)?IMGMAP[s]:null;
+  if(m&&!el.dataset.alt){
+    el.dataset.alt="1";
+    let num=String(n||"");
+    if(m.p&&/^\d+$/.test(num))num=num.padStart(3,"0");
+    el.src="https://assets.tcgdex.net/en/"+m.t+"/"+num+"/high.webp";
+    return;
+  }
+  el.classList.add("failed");const ph=document.createElement("div");ph.className="noimg";ph.textContent="imagem indisponível";el.parentNode.appendChild(ph);
+}
 window.imgFail=imgFail;
 
 function updProgress(){const n=ownedCount(),pct=TOTAL?Math.round(n/TOTAL*100):0;ownN.textContent=n;pbar.style.width=pct+"%";ring.style.setProperty("--p",pct);ringpct.textContent=pct+"%";}
@@ -236,7 +246,7 @@ function buildChips(){
 function tile(s){
   const own=isOwned(s),rc=repCard(s),n=combined(s).length,multi=n>1;
   const el=document.createElement("div");el.className="card "+(own?"owned":"miss")+(freshDex.has(s.dexn)?" fresh":"");el.dataset.i=s._i;
-  const imgHtml=rc.placeholder?CBACK:(rc.img?`<img loading="lazy" decoding="async" src="${rc.img}" alt="${s.species}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`);
+  const imgHtml=rc.placeholder?CBACK:(rc.img?`<img loading="lazy" decoding="async" src="${rc.img}" alt="${s.species}" data-fs="${rc.set||''}" data-fn="${rc.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`);
   el.innerHTML=`<div class="chk" data-toggle title="${own?'Marcar como faltante':'Marcar como minha'}"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
     ${multi?`<div class="multi">×${n}</div>`:""}
     <div class="rbar" style="--c:var(--r-${s.region})"></div>
@@ -278,7 +288,7 @@ function renderModal(s){
       <div class="cc ${own&&owned[s.species]===i?"have":""} ${isc||c.u?"custom":""}">
         ${isc?`<button class="del" data-del="${i-baseN}" title="Remover">✕</button><span class="cbadge">MINHA</span>`:""}
         ${!isc&&c.u?`<button class="del" data-delu="${i}" title="Remover (adicionada da biblioteca)">✕</button><span class="cbadge">MINHA</span>`:""}
-        <div class="ib">${ph?CBACK:(c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`)}</div>
+        <div class="ib">${ph?CBACK:(c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" data-fs="${c.set||''}" data-fn="${c.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`)}</div>
         <div class="cm"><div class="cset">${ph?"Marcador":c.set}</div><div class="cnum">${ph?"Carta de arte rara":c.name+(c.num?" · nº "+c.num:"")}</div>
         ${c.rarity?`<span class="crar">${c.rarity}</span>`:""}
         <button class="mk" data-card="${i}">${own&&owned[s.species]===i?"✓ Tenho esta":"Marcar como minha"}</button></div>
@@ -422,7 +432,7 @@ function renderPicker(dexn){
   const cards=(LIB[String(dexn)]||[]).filter(c=>!already.has(dedup(c)));
   aspsub.textContent=`${v[0]} — escolha a carta para adicionar`;
   let html=cards.map((c,i)=>`<button class="libcard" data-i="${i}">
-      <span class="lib-ib">${c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`}</span>
+      <span class="lib-ib">${c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" data-fs="${c.set||''}" data-fn="${c.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`}</span>
       <span class="lib-meta"><b>${c.name}</b><i>${c.set} · nº ${c.num}</i><em>${c.rarity||""}</em></span>
     </button>`).join("");
   if(!sp) html+=`<button class="libcard marker" data-marker>
@@ -517,6 +527,7 @@ async function loadData(){
     BASE=t;DEXMAP=d;KNOWN_SETS=k;
     try{const ex=await fetch("./data/extras.json",{cache:"no-store"});if(ex.ok)foldExtras(await ex.json());}catch(_){}
     try{const st=await fetch("./data/set_totals.json",{cache:"no-store"});if(st.ok)SET_TOTALS=await st.json();}catch(_){}
+    try{const im=await fetch("./data/imgmap.json",{cache:"no-store"});if(im.ok)IMGMAP=await im.json();}catch(_){}
   }catch(e){
     grid.innerHTML=`<div class="empty">Não consegui carregar os dados (data/tracker.json). Se abriu o arquivo direto do disco, publique no GitHub Pages ou rode um servidor local.</div>`;
     throw e;
