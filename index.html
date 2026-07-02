@@ -46,6 +46,18 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .rmrow{padding:6px 22px 20px}
 .rmsp{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink3);background:none;border:1px solid var(--line2);border-radius:8px;padding:8px 12px;cursor:pointer;transition:.15s}
 .rmsp:hover{color:#e05a5a;border-color:#e05a5a66}
+.aspsearch{display:flex;gap:8px;align-items:center}
+.aspbk{font-family:var(--mono);font-size:11px;color:var(--ink2);background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:11px 12px;cursor:pointer;white-space:nowrap;transition:.15s}
+.aspbk:hover{color:var(--gold);border-color:var(--gold-line)}
+.libcard{display:flex;gap:12px;align-items:center;text-align:left;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;transition:.14s;width:100%}
+.libcard:hover{border-color:var(--gold);background:var(--panel2)}
+.lib-ib{flex:0 0 72px;height:100px;border-radius:8px;overflow:hidden;background:var(--panel2);display:grid;place-items:center}
+.lib-ib img{width:100%;height:100%;object-fit:contain}
+.lib-meta{display:flex;flex-direction:column;gap:3px;min-width:0}
+.lib-meta b{font-family:var(--disp);font-size:14px;color:var(--ink)}
+.lib-meta i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--ink2)}
+.lib-meta em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:.04em}
+.libcard.marker .lib-ib{background:#0e1424}
 .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:16px}
 .search{position:relative;flex:1;min-width:230px}
 .search input{width:100%;font-family:var(--disp);font-size:15px;color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:12px 14px 12px 40px;outline:none;transition:.15s}
@@ -131,7 +143,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
     <div class="pmeta"><div class="pbig"><b id="ownN">0</b> / <span id="totN">618</span> Pokémon</div><div class="pbar"><i id="pbar"></i></div></div></div>
   <div class="tools">
     <button class="tbtn upd" id="btnUpd" title="Buscar sets recém-lançados agora (o site também atualiza sozinho toda semana)">Atualizar agora</button>
-    <button class="tbtn add" id="btnAddSp" title="Criar um quadrinho para um Pokémon que ainda não está na lista">＋ Pokémon</button>
+    <button class="tbtn add" id="btnAddSp" title="Adicionar uma carta da biblioteca (Full Arts, Alt Arts, Gold Stars…) ou criar um quadrinho novo">＋ Carta</button>
     <button class="tbtn" id="btnTxt" title="Baixar a lista das cartas que faltam no formato de consulta por lista (para estimar preços no TCG Collector / PriceCharting)">Faltantes .txt</button>
     <button class="tbtn" id="btnExport">Exportar</button>
     <button class="tbtn" id="btnImport">Importar</button>
@@ -150,10 +162,10 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 <div class="ov" id="ov"><div class="modal" id="modal"></div></div>
 <div class="ov" id="ovAdd"><div class="modal addsp">
   <div class="mhd"><div class="rowx"><div>
-    <div class="dexn">Adicionar Pokémon</div><h2>Criar um quadrinho</h2>
-    <span class="mtag">Escolha um Pokémon que ainda não está na lista</span>
+    <div class="dexn">Adicionar carta</div><h2>Biblioteca de cartas especiais</h2>
+    <span class="mtag" id="aspsub">Escolha o Pokémon — depois a carta</span>
   </div><button class="close" id="addClose" aria-label="Fechar">✕</button></div></div>
-  <div class="aspsearch"><input id="aspq" placeholder="Digite o nome, ex.: Fennekin…" autocomplete="off"></div>
+  <div class="aspsearch"><button class="aspbk" id="aspback" style="display:none">← voltar</button><input id="aspq" placeholder="Digite o nome, ex.: Gengar…" autocomplete="off"></div>
   <div class="asplist" id="asplist"></div>
   <div class="asphint" id="asphint"></div>
 </div></div>
@@ -263,8 +275,9 @@ function renderModal(s){
     </div><button class="close" data-close aria-label="Fechar">✕</button></div></div>
     <div class="msub">${uadded?"Adicionado por você — marque quando tiver uma carta de arte rara":`${L.length} carta${L.length>1?"s":""} — clique na que você possui`}</div>
     <div class="cards">${L.map((c,i)=>{const isc=i>=baseN,ph=c.placeholder;return `
-      <div class="cc ${own&&owned[s.species]===i?"have":""} ${isc?"custom":""}">
+      <div class="cc ${own&&owned[s.species]===i?"have":""} ${isc||c.u?"custom":""}">
         ${isc?`<button class="del" data-del="${i-baseN}" title="Remover">✕</button><span class="cbadge">MINHA</span>`:""}
+        ${!isc&&c.u?`<button class="del" data-delu="${i}" title="Remover (adicionada da biblioteca)">✕</button><span class="cbadge">MINHA</span>`:""}
         <div class="ib">${ph?CBACK:(c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`)}</div>
         <div class="cm"><div class="cset">${ph?"Marcador":c.set}</div><div class="cnum">${ph?"Carta de arte rara":c.name+(c.num?" · nº "+c.num:"")}</div>
         ${c.rarity?`<span class="crar">${c.rarity}</span>`:""}
@@ -282,8 +295,20 @@ function renderModal(s){
   modal.querySelector("[data-close]").onclick=closeModal;
   modal.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>setCard(s,+b.dataset.card));
   modal.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delCustom(s,+b.dataset.del));
+  modal.querySelectorAll("[data-delu]").forEach(b=>b.onclick=()=>delLibCard(s,+b.dataset.delu));
   modal.querySelector("[data-add]").onclick=()=>addCustom(s);
   const rm=modal.querySelector("[data-rmsp]");if(rm)rm.onclick=()=>removeUserSpecies(s);
+}
+async function delLibCard(s,i){
+  const card=combined(s)[i];if(!card)return;
+  extra=extra.filter(e=>!(e.dexn===s.dexn&&dedup(e.card)===dedup(card)));
+  if(owned[s.species]===i)delete owned[s.species];
+  else if(owned[s.species]>i)owned[s.species]--;
+  await store.set("extra_v1",JSON.stringify(extra));save();
+  buildWorking();updProgress();buildChips();render();
+  const nsp=DATA.find(x=>x.dexn===s.dexn);
+  nsp?renderModal(DATA[nsp._i]):closeModal();
+  toast("Carta removida: "+card.name);
 }
 async function removeUserSpecies(s){
   userSpecies=userSpecies.filter(u=>u.dexn!==s.dexn);
@@ -328,7 +353,7 @@ async function updateSets(){
       if(cards){
         for(const c of cards){
           if(c.supertype!=="Pokémon")continue;
-          const KEEPR=["Illustration Rare","Special Illustration Rare","Ultra Rare","Hyper Rare","Shiny Ultra Rare","Black White Rare","Mega Hyper Rare","MEGA_ATTACK_RARE"];
+          const KEEPR=["Illustration Rare","Special Illustration Rare"];
           if(!KEEPR.includes(c.rarity))continue;
           const dexs=c.nationalPokedexNumbers||[];if(!dexs.length)continue;
           const card={name:c.name,set:st.name,num:String(c.number),
@@ -357,39 +382,86 @@ async function updateSets(){
 }
 btnUpd.onclick=updateSets;
 
-/* ---------- BOTÃO + POKÉMON: cria quadrinho para espécie faltante ---------- */
+/* ---------- BOTÃO + CARTA: biblioteca de cartas quebra-moldura ---------- */
 const ovAdd=document.getElementById("ovAdd"),aspq=document.getElementById("aspq"),
-      asplist=document.getElementById("asplist"),asphint=document.getElementById("asphint");
-function missingList(){
-  const have=new Set(DATA.map(s=>s.dexn));
-  const out=[];
-  for(const k in DEXMAP){const dexn=+k;if(have.has(dexn))continue;const v=DEXMAP[k];out.push({dexn,species:v[0],region:v[1]});}
-  return out.sort((a,b)=>a.dexn-b.dexn);
+      asplist=document.getElementById("asplist"),asphint=document.getElementById("asphint"),
+      aspback=document.getElementById("aspback"),aspsub=document.getElementById("aspsub");
+let LIB=null,pickDex=null;
+async function loadLib(){
+  if(LIB)return true;
+  try{const r=await fetch("./data/library.json",{cache:"no-store"});if(r.ok){LIB=await r.json();return true;}}catch(_){}
+  LIB={};toast("Não consegui carregar a biblioteca (data/library.json).");return false;
 }
-function renderAddList(){
-  const q=norm(aspq.value),all=missingList();
-  const list=(q?all.filter(m=>norm(m.species).includes(q)||String(m.dexn).includes(q)):all).slice(0,60);
-  asplist.innerHTML=list.map(m=>`<button class="aspitem" data-dex="${m.dexn}"><span>${m.species}</span><span class="dx">#${String(m.dexn).padStart(4,"0")} · ${m.region}</span></button>`).join("")
-    || `<div class="asphint">Nenhum Pokémon faltante com esse nome.</div>`;
-  asplist.querySelectorAll("[data-dex]").forEach(b=>b.onclick=()=>addSpecies(+b.dataset.dex));
-  asphint.textContent=`${all.length} Pokémon ainda fora da lista${q?` · ${list.length} correspondência(s)`:""}`;
+function speciesRows(){
+  const inlist=new Map(DATA.map(s=>[s.dexn,s]));
+  const q=norm(aspq.value),out=[];
+  for(const k in DEXMAP){
+    const dexn=+k,v=DEXMAP[k];
+    if(q&&!norm(v[0]).includes(q)&&!String(dexn).includes(q))continue;
+    out.push({dexn,species:v[0],region:v[1],listed:inlist.has(dexn),nlib:(LIB[k]||[]).length});
+  }
+  out.sort((a,b)=>a.dexn-b.dexn);
+  return out;
 }
-async function addSpecies(dexn){
+function renderSpecies(){
+  pickDex=null;aspback.style.display="none";
+  aspsub.textContent="Escolha o Pokémon — depois a carta";
+  const list=speciesRows().slice(0,80);
+  asplist.innerHTML=list.map(m=>`<button class="aspitem" data-dex="${m.dexn}">
+      <span>${m.species}</span>
+      <span class="dx">#${String(m.dexn).padStart(4,"0")} · ${m.region} · ${m.listed?"na lista":"fora da lista"}${m.nlib?` · ${m.nlib} na biblioteca`:""}</span>
+    </button>`).join("") || `<div class="asphint">Nenhum Pokémon com esse nome.</div>`;
+  asplist.querySelectorAll("[data-dex]").forEach(b=>b.onclick=()=>renderPicker(+b.dataset.dex));
+  asphint.textContent="Biblioteca: Full Arts, Alt Arts, Gold Stars, LEGEND, douradas e outras cartas além da borda (2004→hoje)";
+}
+function renderPicker(dexn){
+  pickDex=dexn;aspback.style.display="";
+  const v=DEXMAP[dexn]||["?","—"];
+  const sp=DATA.find(s=>s.dexn===dexn);
+  const already=new Set(sp?combined(sp).map(dedup):[]);
+  const cards=(LIB[String(dexn)]||[]).filter(c=>!already.has(dedup(c)));
+  aspsub.textContent=`${v[0]} — escolha a carta para adicionar`;
+  let html=cards.map((c,i)=>`<button class="libcard" data-i="${i}">
+      <span class="lib-ib">${c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`}</span>
+      <span class="lib-meta"><b>${c.name}</b><i>${c.set} · nº ${c.num}</i><em>${c.rarity||""}</em></span>
+    </button>`).join("");
+  if(!sp) html+=`<button class="libcard marker" data-marker>
+      <span class="lib-ib">${CBACK}</span>
+      <span class="lib-meta"><b>Carta marcadora</b><i>sem set/número</i><em>só para marcar que você tem</em></span>
+    </button>`;
+  asplist.innerHTML=html||`<div class="asphint">Nada na biblioteca para ${v[0]} — use a carta marcadora pelo painel do Pokémon ou o formulário "adicionar carta" dentro do quadrinho.</div>`;
+  asplist.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>addLibCard(dexn,cards[+b.dataset.i]));
+  const mk=asplist.querySelector("[data-marker]");if(mk)mk.onclick=()=>addMarker(dexn);
+  asphint.textContent=cards.length?`${cards.length} carta(s) disponível(is) na biblioteca`:"";
+}
+async function addLibCard(dexn,c){
+  const v=DEXMAP[dexn]||[c.name,"—"];
+  extra.push({dexn,species:v[0],region:v[1],dex:"#"+String(dexn).padStart(4,"0"),
+    card:{name:c.name,set:c.set,num:c.num,img:c.img,rarity:c.rarity,u:1}});
+  await store.set("extra_v1",JSON.stringify(extra));
+  buildWorking();updProgress();buildChips();render();renderPicker(dexn);
+  toast(`Adicionada: ${c.name} (${c.set} nº ${c.num}) — abra ${v[0]} e clique nela para marcar como sua`);
+}
+async function addMarker(dexn){
   if(!userSpecies.some(u=>u.dexn===dexn)){
-    const v=DEXMAP[dexn]||DEXMAP[String(dexn)]||["?","—"];
+    const v=DEXMAP[dexn]||["?","—"];
     userSpecies.push({dexn,species:v[0],region:v[1],dex:"#"+String(dexn).padStart(4,"0")});
     await saveUsp();
   }
-  buildWorking();updProgress();buildChips();render();renderAddList();
-  const v=DEXMAP[dexn]||DEXMAP[String(dexn)]||["?"];
-  toast(`Quadrinho criado: ${v[0]} · agora ${TOTAL} Pokémon na lista`);
+  buildWorking();updProgress();buildChips();render();renderPicker(dexn);
+  toast(`Quadrinho criado — agora ${TOTAL} Pokémon na lista`);
 }
-function openAdd(){renderAddList();ovAdd.classList.add("on");document.body.style.overflow="hidden";aspq.value="";setTimeout(()=>aspq.focus(),50);renderAddList();}
+async function openAdd(){
+  ovAdd.classList.add("on");document.body.style.overflow="hidden";
+  asplist.innerHTML=`<div class="asphint">Carregando biblioteca…</div>`;
+  await loadLib();aspq.value="";renderSpecies();setTimeout(()=>aspq.focus(),50);
+}
 function closeAdd(){ovAdd.classList.remove("on");document.body.style.overflow="";}
 document.getElementById("btnAddSp").onclick=openAdd;
 document.getElementById("addClose").onclick=closeAdd;
+aspback.onclick=renderSpecies;
 ovAdd.addEventListener("click",e=>{if(e.target===ovAdd)closeAdd();});
-let aqT;aspq.addEventListener("input",()=>{clearTimeout(aqT);aqT=setTimeout(renderAddList,100);});
+let aqT;aspq.addEventListener("input",()=>{clearTimeout(aqT);aqT=setTimeout(()=>{pickDex==null?renderSpecies():renderSpecies();},120);});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovAdd.classList.contains("on"))closeAdd();});
 
 /* ---------- BOTÃO FALTANTES .txt: lista no formato de consulta por lista ---------- */

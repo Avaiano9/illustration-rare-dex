@@ -15,9 +15,7 @@ import json, os, re, urllib.request
 ROOT   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA   = os.path.join(ROOT, "data")
 RAW    = "https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/"
-KEEP   = {"Illustration Rare", "Special Illustration Rare", "Ultra Rare",
-          "Hyper Rare", "Shiny Ultra Rare", "Black White Rare",
-          "Mega Hyper Rare", "MEGA_ATTACK_RARE"}
+KEEP   = {"Illustration Rare", "Special Illustration Rare"}
 CUTOFF = "2023/01/01"   # IR/SIR so existem a partir da era Scarlet & Violet
 
 def load(name, default):
