@@ -529,6 +529,18 @@ async function loadData(){
   extra=parse(await store.get("extra_v1"),[]);
   updatedSets=parse(await store.get("usets_v1"),[]);
   userSpecies=parse(await store.get("usp_v1"),[]);
+  // Higienização: versões antigas do site gravaram no navegador cartas fora do
+  // escopo atual (douradas, Full Art ex etc. vindas do Atualizar). Mantém apenas
+  // IR/SIR e o que você adicionou de propósito pela biblioteca (u:1).
+  {
+    const ALLOWED=["Illustration Rare","Special Illustration Rare"];
+    const n0=extra.length;
+    extra=extra.filter(e=>e&&e.card&&(e.card.u||ALLOWED.includes(e.card.rarity)));
+    if(extra.length!==n0){
+      await store.set("extra_v1",JSON.stringify(extra));
+      console.log(`Memória higienizada: ${n0-extra.length} carta(s) fora do escopo removida(s).`);
+    }
+  }
   buildWorking();updProgress();buildChips();render();
 })();
 </script></body></html>
