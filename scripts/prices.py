@@ -1,38 +1,38 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Coletor de preços — TCG Codex API (/api/v1), com conversão automática EUR->BRL.
+Coletor de preços e imagens — versão 3.
 
-Fluxo (retomável entre execuções via data/price_cursor.json):
-  A) /api/v1/sets (paginado): casa os sets do Codex com os nossos pelo
-     `set_identifier` (mesmos códigos do data/limmap.json: CRI, MEP, XYP...).
-  B) /api/v1/cards?set_id[]=N (paginado): coleta id + número das cartas que
-     nos interessam (as da BASE IR/SIR + extras — são elas que alimentam as
-     estimativas do painel).
-  C) /api/v1/cards/{id}/prices: uma chamada por carta; usa o MENOR preço
-     positivo entre as variantes (Normal, Reverse Holo...). Moeda: EUR.
-  D) Cotação EUR->BRL do Banco Central Europeu (frankfurter.app, sem chave).
+PARTE 1 — PREÇOS (TCGcsv, gratuito, sem token):
+  O tcgcsv.com redistribui diariamente os preços oficiais do TCGplayer.
+  - /tcgplayer/3/groups              -> sets de Pokémon (groupId, name, abbreviation)
+  - /tcgplayer/3/{gid}/products      -> cartas do set (productId, número)
+  - /tcgplayer/3/{gid}/prices        -> preços por variante (marketPrice etc., USD)
+  Casamos os sets pela ABREVIAÇÃO (mesmos códigos do limmap: CRI, PAF, MEW...)
+  e, em segunda tentativa, pelo nome. Guardamos o MENOR preço de mercado entre
+  as variantes de cada carta. Conversão USD->BRL pelo BCE (frankfurter.app).
+
+PARTE 2 — IMAGENS (TCG Codex, token gratuito, só catálogo):
+  O plano gratuito dá acesso a /sets e /cards (não a /prices). Aproveitamos o
+  campo `image` da listagem para alimentar a 4ª fonte de imagens do site.
+  Roda apenas se TCGCODEX_TOKEN existir; é retomável via cursor.
 
 Saída: data/prices.json
-  {"source","updated","currency":"EUR","eur_brl":taxa,"rate_date",
-   "cards":{"<setkey>|<NUM>": preco_em_euros}}
-A chave replica a normalização do site: nome do nosso set minúsculo sem
-pontuação + "|" + número em maiúsculas só alfanumérico (zeros preservados).
-
-Se TCGCODEX_TOKEN não existir, sai sem erro. Só biblioteca padrão.
+  {"source","updated","currency":"USD","brl_rate",{...},"cards":{chave: usd},
+   "imgs":{chave: url}}  — chave = nome do nosso set normalizado + "|" + número.
+Só biblioteca padrão.
 """
 
 import json, os, re, time, urllib.request, urllib.parse, datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
-API  = "https://tcgcodex.com/api/v1"
-TOKEN = (os.environ.get("TCGCODEX_TOKEN") or "").strip()
+TCGCSV = "https://tcgcsv.com/tcgplayer/3"     # 3 = Pokémon
+CODEX  = "https://tcgcodex.com/api/v1"
+TOKEN  = (os.environ.get("TCGCODEX_TOKEN") or "").strip()
 
-MAX_REQUESTS = int(os.environ.get("PRICES_MAX_REQUESTS", "220"))
-SLEEP = float(os.environ.get("PRICES_SLEEP", "0.7"))
-PER_PAGE = 100
-
+MAX_REQUESTS = int(os.environ.get("PRICES_MAX_REQUESTS", "260"))
+SLEEP = 0.3
 req_count = 0
 
 def load(name, default):
@@ -44,229 +44,183 @@ def save(name, obj):
               ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 class Budget(RuntimeError): pass
-class PrecosBloqueados(RuntimeError): pass
 
-def get(path, **params):
+def http_json(url, bearer=None):
     global req_count
     if req_count >= MAX_REQUESTS: raise Budget("teto de requisições da execução")
-    qs = []
-    for k, v in params.items():
-        if isinstance(v, (list, tuple)):
-            for x in v: qs.append((k + "[]", x))
-        elif v is not None:
-            qs.append((k, v))
-    url = API + path + ("?" + urllib.parse.urlencode(qs) if qs else "")
-    req = urllib.request.Request(url, headers={
-        "Accept": "application/json",
-        "Authorization": "Bearer " + TOKEN,
-        "User-Agent": "irdex-precos/2.0 (pessoal; %.1fs entre chamadas)" % SLEEP})
+    h = {"Accept": "application/json", "User-Agent": "irdex/3.0 (pessoal)"}
+    if bearer: h["Authorization"] = "Bearer " + bearer
+    req = urllib.request.Request(url, headers=h)
     for tent in (1, 2, 3):
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=90) as r:
                 req_count += 1; time.sleep(SLEEP)
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            if e.code == 429:
-                print(f"  429; aguardando {20*tent}s…"); time.sleep(20*tent); continue
-            if e.code in (401, 403):
-                if req_count == 0:
-                    raise RuntimeError(f"HTTP {e.code}: token recusado — confira o segredo TCGCODEX_TOKEN")
-                if path.endswith("/prices"):
-                    raise PrecosBloqueados(f"HTTP {e.code} no endpoint de preços")
-                print(f"  HTTP {e.code} em {path}; aguardando {20*tent}s…"); time.sleep(20*tent); continue
+            if e.code in (429, 403) and tent < 3:
+                print(f"  HTTP {e.code}; aguardando {15*tent}s…"); time.sleep(15*tent); continue
             if e.code == 404: return None
             raise
-    raise Budget("limite de taxa persistente (429)")
-
-def paginate(path, **params):
-    page = 1
-    while True:
-        j = get(path, page=page, per_page=PER_PAGE, **params)
-        if not j: return
-        for item in (j.get("data") or []): yield item
-        meta = j.get("meta") or {}
-        if page >= int(meta.get("last_page") or 1): break
-        page += 1
+    return None
 
 # ---------- normalizações (idênticas às do site) ----------
-def setkey(name):
-    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
-
-def numkey(num):   # como o site: maiúsculo, só alfanumérico, zeros preservados
-    return re.sub(r"[^A-Z0-9]", "", str(num or "").upper())
-
-def loosenum(num): # para casar 080 <-> 80 entre bases diferentes
+def setkey(name): return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+def numkey(num):  return re.sub(r"[^A-Z0-9]", "", str(num or "").upper())
+def loosenum(num):
     n = numkey(num); m = re.fullmatch(r"0*(\d+)", n)
     return m.group(1) if m else n
 
-def attr(obj):     # objetos vêm como {type,id,attributes:{...}}
-    return obj.get("attributes") if isinstance(obj.get("attributes"), dict) else obj
-
-def find_number(card):
-    c = attr(card)
-    for k in ("collector_number", "number", "card_number", "num", "local_id", "localId"):
-        v = c.get(k)
-        if v is not None and str(v).strip():
-            return str(v).split("/")[0].strip()
-    for k in ("number_display", "identifier", "code", "name_number"):
-        v = c.get(k)
-        if isinstance(v, str) and v.strip():
-            m = re.search(r"([A-Za-z]{0,4}\d+[a-z]?)\s*/", v)
-            if m: return m.group(1)
-    return None
-
-def main():
-    if not TOKEN:
-        print("TCGCODEX_TOKEN ausente — etapa de preços pulada."); return
-
-    tracker = load("tracker.json", [])
-    extras  = load("extras.json", [])
-    limmap  = load("limmap.json", {})
-    cursor  = load("price_cursor.json", {"stage": "A", "codex_sets": [], "pend": [], "done_sets": []})
-    prices  = load("prices.json", {}) or {}
-    cards_out = prices.get("cards", {})
-    imgs_out  = prices.get("imgs", {})
-
-    # cartas de interesse: BASE + extras -> (código, nº frouxo) -> [(nosso set, nosso nº)]
-    wanted = {}
-    def note(setname, num):
-        code = limmap.get(setname)
-        if code: wanted.setdefault((code, loosenum(num)), set()).add((setname, str(num)))
+def wanted_map():
+    """(código, nº frouxo) -> {(nosso set, nosso nº)} — base IR/SIR + extras."""
+    tracker = load("tracker.json", []); extras = load("extras.json", [])
+    limmap = load("limmap.json", {})
+    w = {}
+    def note(sn, num):
+        code = limmap.get(sn)
+        if code: w.setdefault((code, loosenum(num)), set()).add((sn, str(num)))
     for s in tracker:
         for c in s["cards"]: note(c.get("set"), c.get("num"))
     for e in extras: note(e.get("set"), e.get("num"))
+    return w, limmap
+
+# =====================================================================
+# PARTE 1 — preços do TCGcsv
+# =====================================================================
+def precos_tcgcsv(wanted, limmap, cards_out):
     codes = {c for c, _ in wanted}
-    print(f"cartas de interesse (base+extras): {len(wanted)} em {len(codes)} códigos de set")
+    nomes = {setkey(n): limmap[n] for n in limmap}
+    print("PREÇOS (TCGcsv/TCGplayer)…")
+    grupos = (http_json(f"{TCGCSV}/groups") or {}).get("results") or []
+    print(f"  grupos de Pokémon no TCGplayer: {len(grupos)}")
+    casados = []
+    for g in grupos:
+        ab = str(g.get("abbreviation") or "").upper()
+        nk = setkey(g.get("name") or "")
+        code = ab if ab in codes else nomes.get(nk)
+        if code and code in codes:
+            casados.append((g.get("groupId"), code, g.get("name")))
+    print(f"  sets casados: {len(casados)}")
+    novos = 0
+    for gid, code, gname in casados:
+        prods = (http_json(f"{TCGCSV}/{gid}/products") or {}).get("results") or []
+        precos = (http_json(f"{TCGCSV}/{gid}/prices") or {}).get("results") or []
+        por_prod = {}
+        for p in precos:
+            v = p.get("marketPrice") or p.get("midPrice") or p.get("lowPrice")
+            try: v = float(v)
+            except (TypeError, ValueError): continue
+            if v <= 0: continue
+            pid = p.get("productId")
+            por_prod[pid] = min(v, por_prod.get(pid, v))
+        n_set = 0
+        for pr in prods:
+            num = None
+            for ed in (pr.get("extendedData") or []):
+                if str(ed.get("name", "")).lower() in ("number", "card number"):
+                    num = str(ed.get("value", "")).split("/")[0].strip(); break
+            if not num: continue
+            key = (code, loosenum(num))
+            if key not in wanted: continue
+            v = por_prod.get(pr.get("productId"))
+            if v is None: continue
+            for sn, on in wanted[key]:
+                k = f"{setkey(sn)}|{numkey(on)}"
+                cards_out[k] = min(round(v, 2), cards_out.get(k, 10**9))
+                n_set += 1; novos += 1
+        if n_set: print(f"  {code} ({gname}): {n_set} preços")
+    print(f"  preços gravados/atualizados: {novos}")
 
+# =====================================================================
+# PARTE 2 — imagens do TCG Codex (catálogo; retomável)
+# =====================================================================
+def imagens_codex(wanted, limmap, imgs_out):
+    if not TOKEN:
+        print("IMAGENS (Codex): sem token — etapa pulada."); return
+    print("IMAGENS (TCG Codex)…")
+    cur = load("codex_cursor.json", {"sets": None, "done": []})
+    codes = {c for c, _ in wanted}
+    byname = {setkey(n): limmap[n] for n in limmap}
+    def pag(path, **params):
+        page = 1
+        while True:
+            qs = [("page", page), ("per_page", 100)]
+            for k, v in params.items():
+                if isinstance(v, list):
+                    for x in v: qs.append((k + "[]", x))
+                else: qs.append((k, v))
+            j = http_json(CODEX + path + "?" + urllib.parse.urlencode(qs), bearer=TOKEN)
+            if not j: return
+            for it in (j.get("data") or []): yield it
+            meta = j.get("meta") or {}
+            if page >= int(meta.get("last_page") or 1): break
+            page += 1
+    A = lambda o: o.get("attributes") if isinstance(o.get("attributes"), dict) else o
     try:
-        # ---------- A) índice de sets ----------
-        if cursor["stage"] == "A":
-            idx = []
-            seen_ids = set()
-            byname = {}   # nome nosso normalizado -> código esperado
-            for ourname, code in limmap.items():
-                byname[setkey(ourname)] = code
-            totals = load("set_totals.json", {})
-            tot_add = 0
-            print("A) baixando índice de sets…")
-            for s in paginate("/sets"):
-                c = attr(s)
-                ident = str(c.get("identifier") or c.get("set_identifier") or "").upper()
-                sid = s.get("id") or c.get("id")
+        if cur["sets"] is None:
+            idx, vistos = [], set()
+            for s in pag("/sets"):
+                c = A(s); sid = s.get("id") or c.get("id")
+                if not sid or sid in vistos: continue
                 game = str(((c.get("game") or {}).get("name")) or "").lower()
-                # casamento extra pelo nome (Trainer Gallery, Galarian Gallery etc.)
-                nm = setkey(c.get("name") or "")
-                if sid and nm in byname and byname[nm] in codes and (not game or "pokemon" in game):
-                    if sid not in seen_ids:
-                        idx.append({"id": sid, "ident": byname[nm], "nome": c.get("name") or ""})
-                        seen_ids.add(sid)
-                if not (ident in codes and sid): continue
-                if sid in seen_ids: continue
-                if game and "pokemon" not in game:      # evita colisão com Lorcana/Magic etc.
-                    print(f"   ignorando {ident} do jogo {game!r}"); continue
-                idx.append({"id": sid, "ident": ident, "nome": c.get("name") or ""})
-                seen_ids.add(sid)
-                ptotal = c.get("card_printed_total")
-                if ptotal:
-                    for (cd, _), pares in wanted.items():
-                        if cd != ident: continue
-                        for sn, _n in pares:
-                            if sn not in totals and "Promo" not in sn:
-                                totals[sn] = int(ptotal); tot_add += 1
-            if tot_add:
-                save("set_totals.json", totals)
-                print(f"   totais impressos completados: {tot_add}")
-            cursor["codex_sets"] = idx; cursor["stage"] = "B"
-            save("price_cursor.json", cursor)
-            print(f"   sets casados: {len(idx)}")
-
-        # ---------- B) ids das cartas ----------
-        if cursor["stage"] == "B":
-            print("B) coletando ids das cartas…")
-            for cs in cursor["codex_sets"]:
-                if cs["id"] in cursor["done_sets"]: continue
-                hits = 0
-                for card in paginate("/cards", **{"set_id": [cs["id"]]}):
-                    c = attr(card); cid = card.get("id") or c.get("id")
-                    num = find_number(card)
-                    if not cid or num is None: continue
-                    key = (cs["ident"], loosenum(num))
-                    if key in wanted:
-                        alvo = [f"{setkey(sn)}|{numkey(on)}" for sn, on in wanted[key]]
-                        img = c.get("image")
-                        if img:
-                            for k in alvo:
-                                imgs_out[k] = "https://tcgcodex.com/" + str(img).lstrip("/")
-                        cursor["pend"].append({"cid": cid, "keys": alvo}); hits += 1
-                cursor["done_sets"].append(cs["id"])
-                prices_tmp = dict(prices); prices_tmp["cards"] = cards_out; prices_tmp["imgs"] = imgs_out
-                save("prices.json", prices_tmp)
-                save("price_cursor.json", cursor)
-                print(f"   {cs['ident']}: {hits} cartas de interesse")
-            cursor["stage"] = "C"; save("price_cursor.json", cursor)
-            print(f"   fila de preços: {len(cursor['pend'])} cartas")
-
-        # ---------- C) preços, carta a carta ----------
-        if cursor["stage"] == "C":
-            print(f"C) preços ({len(cursor['pend'])} na fila)…")
-            exemplo = False
-            while cursor["pend"]:
-                item = cursor["pend"][0]
-                j = get(f"/cards/{item['cid']}/prices")
-                vals = []
-                for row in ((j or {}).get("data") or []):
-                    a = attr(row)
-                    p = a.get("price")
-                    if isinstance(p, str): p = p.replace(",", ".")
-                    try: p = float(p)
-                    except (TypeError, ValueError): continue
-                    if p > 0: vals.append(p)
-                    if not exemplo:
-                        print(f"   exemplo de variante: {a.get('variant')} price={a.get('price')} {a.get('currency')} ({a.get('priced_at')})")
-                        exemplo = True
-                if vals:
-                    menor = round(min(vals), 2)
-                    for k in item["keys"]: cards_out[k] = menor
-                cursor["pend"].pop(0)
-                if req_count % 20 == 0:
-                    prices_tmp = dict(prices); prices_tmp["cards"] = cards_out; prices_tmp["imgs"] = imgs_out
-                    save("prices.json", prices_tmp); save("price_cursor.json", cursor)
+                if game and "pokemon" not in game: continue
+                ident = str(c.get("identifier") or "").upper()
+                code = ident if ident in codes else byname.get(setkey(c.get("name") or ""))
+                if code and code in codes:
+                    idx.append({"id": sid, "code": code}); vistos.add(sid)
+            cur["sets"] = idx; save("codex_cursor.json", cur)
+            print(f"  sets casados no Codex: {len(idx)}")
+        for cs in cur["sets"]:
+            if cs["id"] in cur["done"]: continue
+            n = 0
+            for card in pag("/cards", set_id=[cs["id"]]):
+                c = A(card)
+                num = c.get("number") or c.get("collector_number")
+                img = c.get("image")
+                if not num or not img: continue
+                key = (cs["code"], loosenum(str(num).split("/")[0]))
+                for sn, on in (wanted.get(key) or []):
+                    imgs_out[f"{setkey(sn)}|{numkey(on)}"] = "https://tcgcodex.com/" + str(img).lstrip("/")
+                    n += 1
+            cur["done"].append(cs["id"]); save("codex_cursor.json", cur)
+            if n: print(f"  {cs['code']}: {n} imagens")
+        if all(cs["id"] in cur["done"] for cs in cur["sets"]):
+            save("codex_cursor.json", {"sets": None, "done": []})
+            print("  ciclo de imagens completo.")
     except Budget as e:
-        print(f"Pausa: {e}. Progresso salvo; a próxima execução continua de onde parou.")
-    except PrecosBloqueados as e:
-        print(f"AVISO: {e}.")
-        print("O catálogo funcionou, mas o endpoint de preços foi negado. Provável causa:")
-        print("  - preços disponíveis apenas em planos pagos do TCG Codex; ou")
-        print("  - bloqueio temporário. A fila fica salva e será retentada na próxima rodada.")
-        print("As IMAGENS coletadas foram preservadas e já beneficiam o site.")
+        print(f"  pausa nas imagens: {e} (cursor salvo; continua na próxima).")
+    except urllib.error.HTTPError as e:
+        print(f"  aviso Codex: HTTP {e.code} — etapa de imagens adiada para a próxima rodada.")
 
-    # ---------- D) cotação EUR->BRL ----------
-    rate = prices.get("eur_brl"); rate_date = prices.get("rate_date")
+# =====================================================================
+def main():
+    wanted, limmap = wanted_map()
+    print(f"cartas de interesse (base+extras): {len(wanted)}")
+    prices = load("prices.json", {}) or {}
+    cards_out = prices.get("cards", {})
+    imgs_out  = prices.get("imgs", {})
+
     try:
-        fx = get_fx()
-        if fx: rate, rate_date = fx
+        precos_tcgcsv(wanted, limmap, cards_out)
+    except Budget as e:
+        print(f"pausa nos preços: {e}")
+    except Exception as e:
+        print(f"aviso: TCGcsv indisponível nesta rodada ({e}); mantendo preços anteriores.")
+
+    imagens_codex(wanted, limmap, imgs_out)
+
+    rate = prices.get("brl_rate"); rate_date = prices.get("rate_date")
+    try:
+        j = http_json("https://api.frankfurter.app/latest?from=USD&to=BRL")
+        v = ((j or {}).get("rates") or {}).get("BRL")
+        if v: rate, rate_date = round(float(v), 4), j.get("date")
     except Exception as e:
         print(f"aviso: cotação indisponível ({e}); mantendo a anterior.")
 
-    prices = {"source": "TCG Codex (Cardmarket)",
-              "updated": datetime.date.today().isoformat(),
-              "currency": "EUR", "eur_brl": rate, "rate_date": rate_date,
-              "cards": cards_out, "imgs": imgs_out}
-    save("prices.json", prices)
-    save("price_cursor.json", cursor)
-    fila = len(cursor.get("pend", []))
-    print(f"prices.json: {len(cards_out)} preços | fila restante: {fila} | req: {req_count} | €1 = R$ {rate}")
-    if cursor["stage"] == "C" and not fila:
-        save("price_cursor.json", {"stage": "A", "codex_sets": [], "pend": [], "done_sets": []})
-        print("Ciclo completo — a próxima rodada renova tudo (sets novos incluídos).")
-
-def get_fx():
-    url = "https://api.frankfurter.app/latest?from=EUR&to=BRL"
-    req = urllib.request.Request(url, headers={"User-Agent": "irdex/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        j = json.loads(r.read().decode("utf-8"))
-    v = (j.get("rates") or {}).get("BRL")
-    return (round(float(v), 4), j.get("date")) if v else None
+    save("prices.json", {"source": "TCGplayer via TCGcsv",
+                         "updated": datetime.date.today().isoformat(),
+                         "currency": "USD", "brl_rate": rate, "rate_date": rate_date,
+                         "cards": cards_out, "imgs": imgs_out})
+    print(f"prices.json: {len(cards_out)} preços | {len(imgs_out)} imagens | req: {req_count} | US$ 1 = R$ {rate}")
 
 if __name__ == "__main__":
     main()
