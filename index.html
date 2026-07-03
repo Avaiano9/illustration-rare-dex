@@ -171,7 +171,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={};const UPDATED="30/06/2026";
+let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={};const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
 let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[];
@@ -217,15 +217,19 @@ const repCard=s=>{const L=combined(s);const idx=isOwned(s)?owned[s.species]:0;re
 const repImg=s=>repCard(s).img;
 const ownedCount=()=>Object.keys(owned).length;
 const norm=t=>(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+function altUrls(s,n,cur){
+  const out=[];const num0=String(n||"");
+  const m=(s&&IMGMAP)?IMGMAP[s]:null;
+  if(m){let num=num0;if(m.p&&/^\d+$/.test(num))num=num.padStart(3,"0");
+    out.push("https://assets.tcgdex.net/en/"+m.t+"/"+num+"/high.webp");}
+  const L=(s&&LIMMAP)?LIMMAP[s]:null;
+  if(L){let num=/^\d+$/.test(num0)?num0.padStart(3,"0"):num0;
+    out.push("https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/"+L+"/"+L+"_"+num+"_R_EN_SM.png");}
+  return out.filter(u=>u!==cur);
+}
 function imgFail(el){
-  const s=el.dataset.fs,n=el.dataset.fn,m=(s&&IMGMAP)?IMGMAP[s]:null;
-  if(m&&!el.dataset.alt){
-    el.dataset.alt="1";
-    let num=String(n||"");
-    if(m.p&&/^\d+$/.test(num))num=num.padStart(3,"0");
-    el.src="https://assets.tcgdex.net/en/"+m.t+"/"+num+"/high.webp";
-    return;
-  }
+  if(!el._alts){el._alts=altUrls(el.dataset.fs,el.dataset.fn,el.getAttribute("src"));el._ai=0;}
+  if(el._ai<el._alts.length){el.src=el._alts[el._ai++];return;}
   el.classList.add("failed");const ph=document.createElement("div");ph.className="noimg";ph.textContent="imagem indisponível";el.parentNode.appendChild(ph);
 }
 window.imgFail=imgFail;
@@ -528,6 +532,7 @@ async function loadData(){
     try{const ex=await fetch("./data/extras.json",{cache:"no-store"});if(ex.ok)foldExtras(await ex.json());}catch(_){}
     try{const st=await fetch("./data/set_totals.json",{cache:"no-store"});if(st.ok)SET_TOTALS=await st.json();}catch(_){}
     try{const im=await fetch("./data/imgmap.json",{cache:"no-store"});if(im.ok)IMGMAP=await im.json();}catch(_){}
+    try{const lm=await fetch("./data/limmap.json",{cache:"no-store"});if(lm.ok)LIMMAP=await lm.json();}catch(_){}
   }catch(e){
     grid.innerHTML=`<div class="empty">Não consegui carregar os dados (data/tracker.json). Se abriu o arquivo direto do disco, publique no GitHub Pages ou rode um servidor local.</div>`;
     throw e;
