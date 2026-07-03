@@ -129,6 +129,9 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .addrow input{font-family:var(--disp);font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:9px 11px;outline:none;transition:.15s}
 .addrow input:focus{border-color:var(--gold-line);box-shadow:0 0 0 3px var(--gold-soft)}
 .addrow .i-set{flex:2;min-width:150px}.addrow .i-num{flex:1;min-width:80px}
+.filebtn{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink2);background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:9px 12px;cursor:pointer;transition:.15s;white-space:nowrap}
+.filebtn:hover{border-color:var(--gold-line);color:var(--ink)}
+.filehint{font-family:var(--mono);font-size:10.5px;color:var(--gold);padding-top:7px;min-height:1em}
 .addrow button{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;background:var(--gold);color:#1a1608;border:0;border-radius:9px;padding:9px 16px;cursor:pointer}
 .addrow button:hover{filter:brightness(1.05)}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--panel2);border:1px solid var(--gold-line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:10px;z-index:80;transition:.25s;pointer-events:none;max-width:90vw;text-align:center}
@@ -152,7 +155,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 </div></header>
 <div class="wrap">
   <div class="controls">
-    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Buscar Pokémon…" autocomplete="off"></div>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Buscar Pokémon, set ou carta…" autocomplete="off"></div>
     <div class="seg" role="group" aria-label="Status"><button data-st="all" aria-pressed="true">Todos</button><button data-st="have">Tenho</button><button data-st="need">Faltam</button></div>
   </div>
   <div class="chips" id="chips"></div>
@@ -265,7 +268,7 @@ function render(){
     if(filterRegion&&s.region!==filterRegion)return false;
     if(filterStatus==="have"&&!isOwned(s))return false;
     if(filterStatus==="need"&&isOwned(s))return false;
-    if(nq&&!norm(s.species).includes(nq)&&!s.dex.includes(nq))return false;return true;});
+    if(nq&&!norm(s.species).includes(nq)&&!s.dex.includes(nq)&&!combined(s).some(c=>norm(c.set||"").includes(nq)||norm(c.name||"").includes(nq)))return false;return true;});
   grid.innerHTML="";
   if(!list.length){grid.innerHTML=`<div class="empty">Nenhum Pokémon com esses filtros.</div>`;return;}
   const f=document.createDocumentFragment();list.forEach(s=>f.appendChild(tile(s)));grid.appendChild(f);
@@ -300,12 +303,20 @@ function renderModal(s){
     ${uadded?`<div class="rmrow"><button class="rmsp" data-rmsp>Remover este Pokémon da lista</button></div>`:""}
     <div class="addbox">
       <h4>Tem outra carta que não está na lista?</h4>
-      <p>Ex.: um Tauros de Chaos Rising, um promo antigo, uma versão japonesa. Adicione a edição e o número — marca a espécie como sua.</p>
+      <p>Ex.: um promo antigo ou uma versão japonesa. Informe a edição e o nº — e, se quiser, uma imagem: cole a URL (do TCG Codex, por exemplo) ou anexe uma foto do seu computador.</p>
       <div class="addrow">
-        <input class="i-set" id="c-set" placeholder="Edição (ex.: Chaos Rising)">
-        <input class="i-num" id="c-num" placeholder="Nº (ex.: 96)">
+        <input class="i-set" id="c-set" placeholder="Edição (ex.: XY-P Promo)">
+        <input class="i-num" id="c-num" placeholder="Nº (ex.: 268)">
+      </div>
+      <div class="addrow" style="margin-top:8px">
+        <input class="i-set" id="c-img" placeholder="URL da imagem (opcional)">
+        <input type="file" id="c-file" accept="image/*" style="display:none">
+        <button type="button" class="filebtn" id="c-filebtn">📷 Foto</button>
         <button data-add>Adicionar</button>
-      </div></div>`;
+      </div>
+      <div class="filehint" id="c-filehint"></div>
+    </div>`;
+  bindCustomImg();
   modal.querySelector("[data-close]").onclick=closeModal;
   modal.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>setCard(s,+b.dataset.card));
   modal.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delCustom(s,+b.dataset.del));
@@ -330,13 +341,40 @@ async function removeUserSpecies(s){
   await saveUsp();save();closeModal();
   buildWorking();updProgress();buildChips();render();toast("Removido da lista: "+s.species);
 }
+let pendingImg=null;
+function bindCustomImg(){
+  pendingImg=null;
+  const fb=document.getElementById("c-filebtn"),fi=document.getElementById("c-file"),fh=document.getElementById("c-filehint");
+  if(!fb)return;
+  fb.onclick=()=>fi.click();
+  fi.onchange=()=>{
+    const f=fi.files&&fi.files[0];if(!f)return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{
+        const MAX=480,sc=Math.min(1,MAX/im.height);
+        const cv=document.createElement("canvas");
+        cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);
+        cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);
+        pendingImg=cv.toDataURL("image/jpeg",0.82);
+        fh.textContent="✓ foto anexada ("+f.name+") — clique em Adicionar";
+      };
+      im.onerror=()=>{fh.textContent="não consegui ler essa imagem";};
+      im.src=rd.result;
+    };
+    rd.readAsDataURL(f);
+  };
+}
 function addCustom(s){
   const set=document.getElementById("c-set").value.trim();const num=document.getElementById("c-num").value.trim();
+  const url=(document.getElementById("c-img")||{value:""}).value.trim();
   if(!set){toast("Informe a edição");return;}
-  (custom[s.species]=custom[s.species]||[]).push({name:s.species,set,num,img:null,rarity:"minha"});
+  const img=pendingImg||url||null;pendingImg=null;
+  (custom[s.species]=custom[s.species]||[]).push({name:s.species,set,num,img,rarity:"minha"});
   owned[s.species]=s.cards.length+custom[s.species].length-1;
   save();updProgress();buildChips();renderModal(s);
-  const t=grid.querySelector(`.card[data-i="${s._i}"]`);if(t)t.replaceWith(tile(s));toast("Carta adicionada");
+  const t=grid.querySelector(`.card[data-i="${s._i}"]`);if(t)t.replaceWith(tile(s));toast("Carta adicionada"+(img?" com imagem":""));
 }
 function delCustom(s,ci){
   const arr=custom[s.species]||[];const removedIdx=s.cards.length+ci;arr.splice(ci,1);
