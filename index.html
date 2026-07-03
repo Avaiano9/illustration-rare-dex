@@ -132,6 +132,22 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .filebtn{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink2);background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:9px 12px;cursor:pointer;transition:.15s;white-space:nowrap}
 .filebtn:hover{border-color:var(--gold-line);color:var(--ink)}
 .filehint{font-family:var(--mono);font-size:10.5px;color:var(--gold);padding-top:7px;min-height:1em}
+.stats{max-width:620px}
+.statsbody{padding:6px 22px 24px;max-height:70vh;overflow:auto}
+.bignums{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0 18px}
+.bignum{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;text-align:center}
+.bignum b{display:block;font-size:24px;font-weight:700}
+.bignum span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink3);text-transform:uppercase}
+.sech{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--ink3);text-transform:uppercase;margin:16px 0 8px}
+.rbarrow{display:flex;align-items:center;gap:10px;margin:7px 0}
+.rbarrow .rlab{font-family:var(--disp);font-size:12.5px;font-weight:600;width:76px}
+.rbarrow .rtrk{flex:1;height:10px;border-radius:6px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.rbarrow .rfill{height:100%;border-radius:6px;background:var(--c)}
+.rbarrow .rnum{font-family:var(--mono);font-size:10.5px;color:var(--ink3);width:86px;text-align:right}
+.pricebox{background:var(--panel);border:1px solid var(--gold-line);border-radius:12px;padding:14px;margin-top:6px}
+.pricebox .prow{display:flex;justify-content:space-between;gap:10px;margin:6px 0;font-size:13.5px}
+.pricebox .prow b{font-size:15px}
+.pnote{font-family:var(--mono);font-size:10px;color:var(--ink3);line-height:1.6;margin-top:10px}
 .addrow button{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;background:var(--gold);color:#1a1608;border:0;border-radius:9px;padding:9px 16px;cursor:pointer}
 .addrow button:hover{filter:brightness(1.05)}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--panel2);border:1px solid var(--gold-line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:10px;z-index:80;transition:.25s;pointer-events:none;max-width:90vw;text-align:center}
@@ -147,6 +163,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
   <div class="tools">
     <button class="tbtn upd" id="btnUpd" title="Buscar sets recém-lançados agora (o site também atualiza sozinho toda semana)">Atualizar agora</button>
     <button class="tbtn add" id="btnAddSp" title="Adicionar uma carta da biblioteca (Full Arts, Alt Arts, Gold Stars…) ou criar um quadrinho novo">＋ Carta</button>
+    <button class="tbtn" id="btnStats" title="Estatísticas da coleção: contagens, regiões e estimativas de preço">📊 Estatísticas</button>
     <button class="tbtn" id="btnTxt" title="Baixar a lista das cartas que faltam no formato de consulta por lista (para estimar preços no TCG Collector / PriceCharting)">Faltantes .txt</button>
     <button class="tbtn" id="btnExport">Exportar</button>
     <button class="tbtn" id="btnImport">Importar</button>
@@ -172,9 +189,15 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
   <div class="asplist" id="asplist"></div>
   <div class="asphint" id="asphint"></div>
 </div></div>
+<div class="ov" id="ovStats"><div class="modal stats">
+  <div class="mhd"><div class="rowx"><div>
+    <div class="dexn">Coleção</div><h2>Estatísticas</h2>
+  </div><button class="close" id="statsClose" aria-label="Fechar">✕</button></div></div>
+  <div class="statsbody" id="statsbody"></div>
+</div></div>
 <div class="toast" id="toast"></div>
 <script>
-let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={};const UPDATED="30/06/2026";
+let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={},PRICES=null;const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
 let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[];
@@ -228,6 +251,10 @@ function altUrls(s,n,cur){
   const m=(s&&IMGMAP)?IMGMAP[s]:null;
   if(m){let num=num0;if(m.p&&/^\d+$/.test(num))num=num.padStart(3,"0");
     out.push("https://assets.tcgdex.net/en/"+m.t+"/"+num+"/high.webp");}
+  if(PRICES&&PRICES.imgs){
+    const k=((s||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+num0.toUpperCase().replace(/[^A-Z0-9]/g,"");
+    const u=PRICES.imgs[k];if(u)out.push(u);
+  }
   return out.filter(u=>u!==cur);
 }
 function imgFail(el){
@@ -539,6 +566,58 @@ function genMissingTxt(){
 }
 document.getElementById("btnTxt").onclick=genMissingTxt;
 
+/* ---------- ESTATÍSTICAS ---------- */
+const ovStats=document.getElementById("ovStats");
+const priceKey=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const priceOf=c=>{if(!PRICES||!PRICES.cards)return null;const v=PRICES.cards[priceKey(c)];return typeof v==="number"?v:null;};
+const fmtEur=v=>"€ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtMoney=v=>{const r=PRICES&&PRICES.eur_brl;return r?"R$ "+(v*r).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):fmtEur(v);};
+function renderStats(){
+  const total=DATA.length,own=DATA.filter(isOwned).length,miss=total-own;
+  const pct=total?Math.round(own/total*1000)/10:0;
+  const regs={};DATA.forEach(s=>{(regs[s.region]=regs[s.region]||{t:0,o:0}).t++;if(isOwned(s))regs[s.region].o++;});
+  const ORDER=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea","—"];
+  let bars="";
+  ORDER.forEach(r=>{const d=regs[r];if(!d)return;
+    const p=d.t?Math.round(d.o/d.t*100):0;
+    bars+=`<div class="rbarrow"><span class="rlab">${r}</span><div class="rtrk"><div class="rfill" style="--c:var(--r-${r});width:${p}%"></div></div><span class="rnum">${d.o}/${d.t} · ${p}%</span></div>`;});
+  let price="";
+  if(PRICES&&PRICES.cards){
+    let vOwn=0,nOwnPriced=0,vMiss=0,nMissPriced=0,noPrice=0;
+    DATA.forEach(s=>{
+      const L=combined(s);
+      if(isOwned(s)){
+        const sel=L[owned[s.species]]||L[0];let p=sel?priceOf(sel):null;
+        if(p==null){const ps=L.map(priceOf).filter(x=>x!=null);p=ps.length?Math.min(...ps):null;}
+        if(p!=null){vOwn+=p;nOwnPriced++;}else noPrice++;
+      }else{
+        const ps=s.cards.map(priceOf).filter(x=>x!=null);
+        if(ps.length){vMiss+=Math.min(...ps);nMissPriced++;}else noPrice++;
+      }});
+    const rateTxt=PRICES.eur_brl?` · convertido de euros (€ 1 = R$ ${PRICES.eur_brl.toLocaleString("pt-BR")}, BCE ${PRICES.rate_date||""})`:"";
+    price=`<div class="sech">Estimativas de preço</div><div class="pricebox">
+      <div class="prow"><span>Valor estimado do que você tem (${nOwnPriced} Pokémon)</span><b>${fmtMoney(vOwn)}</b></div>
+      <div class="prow"><span>Para completar — carta mais barata por Pokémon (${nMissPriced} faltantes)</span><b>${fmtMoney(vMiss)}</b></div>
+      <div class="pnote">Estimativas com dados públicos de mercado (${PRICES.source||"—"}, atualização ${PRICES.updated||"—"})${rateTxt}. Preços variam; ${noPrice?noPrice+" Pokémon sem preço disponível; ":""}use como referência, não como avaliação.</div>
+    </div>`;
+  }else{
+    price=`<div class="sech">Estimativas de preço</div><div class="pricebox"><div class="pnote">Os preços ainda não foram configurados. Quando o robô semanal estiver conectado à fonte de preços, este painel mostrará o valor estimado da sua coleção e quanto falta para completá-la com as cartas mais baratas.</div></div>`;
+  }
+  document.getElementById("statsbody").innerHTML=`
+    <div class="bignums">
+      <div class="bignum"><b>${own}</b><span>Tenho</span></div>
+      <div class="bignum"><b>${miss}</b><span>Faltam</span></div>
+      <div class="bignum"><b>${pct}%</b><span>Completo</span></div>
+    </div>
+    <div class="sech">Por região</div>${bars}${price}`;
+}
+function openStats(){renderStats();ovStats.classList.add("on");document.body.style.overflow="hidden";}
+function closeStats(){ovStats.classList.remove("on");document.body.style.overflow="";}
+document.getElementById("btnStats").onclick=openStats;
+document.getElementById("statsClose").onclick=closeStats;
+ovStats.addEventListener("click",e=>{if(e.target===ovStats)closeStats();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovStats.classList.contains("on"))closeStats();});
+
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));filterStatus=b.dataset.st;render();});
 let qT;document.getElementById("q").addEventListener("input",e=>{query=e.target.value;clearTimeout(qT);qT=setTimeout(render,120);});
 btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:4,owned,custom,extra,updatedSets,userSpecies},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
@@ -571,6 +650,7 @@ async function loadData(){
     try{const st=await fetch("./data/set_totals.json",{cache:"no-store"});if(st.ok)SET_TOTALS=await st.json();}catch(_){}
     try{const im=await fetch("./data/imgmap.json",{cache:"no-store"});if(im.ok)IMGMAP=await im.json();}catch(_){}
     try{const lm=await fetch("./data/limmap.json",{cache:"no-store"});if(lm.ok)LIMMAP=await lm.json();}catch(_){}
+    try{const pr=await fetch("./data/prices.json",{cache:"no-store"});if(pr.ok)PRICES=await pr.json();}catch(_){}
   }catch(e){
     grid.innerHTML=`<div class="empty">Não consegui carregar os dados (data/tracker.json). Se abriu o arquivo direto do disco, publique no GitHub Pages ou rode um servidor local.</div>`;
     throw e;
