@@ -102,12 +102,21 @@ def main():
         except Exception as e:
             print(f"  aviso: falha ao ler {sid} ({e}); tentará na próxima vez")
             continue
+        code = st.get("ptcgoCode") or ""
+        def mkimg(num):
+            # Limitless é a fonte mais rápida para sets novos; o site ainda tenta
+            # TCGdex e images.pokemontcg.io pela corrente de reserva se faltar.
+            if code and "-" not in code:
+                n = num.zfill(3) if num.isdigit() else num
+                return (f"https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/"
+                        f"tpci/{code}/{code}_{n}_R_EN_SM.png")
+            return f"https://images.pokemontcg.io/{sid}/{num}.png"
         for c in cards:
             if c.get("supertype") != "Pokémon": continue
             dexs = c.get("nationalPokedexNumbers") or []
             if not dexs: continue
             card = {"name": c["name"], "set": st["name"], "num": str(c.get("number","")),
-                    "img": f"https://images.pokemontcg.io/{sid}/{c.get('number','')}.png",
+                    "img": mkimg(str(c.get("number",""))),
                     "rarity": c.get("rarity")}
             if dedup(card) in have: continue
             r = c.get("rarity")
