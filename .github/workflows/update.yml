@@ -25,6 +25,11 @@ jobs:
       - name: Incorporar sets novos
         run: python scripts/build.py
 
+      - name: Atualizar preços (TCG Codex)
+        env:
+          TCGCODEX_TOKEN: ${{ secrets.TCGCODEX_TOKEN }}
+        run: python scripts/prices.py
+
       - name: Publicar mudanças (se houver)
         run: |
           git config user.name "github-actions[bot]"
