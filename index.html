@@ -219,12 +219,12 @@ const ownedCount=()=>Object.keys(owned).length;
 const norm=t=>(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 function altUrls(s,n,cur){
   const out=[];const num0=String(n||"");
-  const m=(s&&IMGMAP)?IMGMAP[s]:null;
-  if(m){let num=num0;if(m.p&&/^\d+$/.test(num))num=num.padStart(3,"0");
-    out.push("https://assets.tcgdex.net/en/"+m.t+"/"+num+"/high.webp");}
   const L=(s&&LIMMAP)?LIMMAP[s]:null;
   if(L){let num=/^\d+$/.test(num0)?num0.padStart(3,"0"):num0;
     out.push("https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/"+L+"/"+L+"_"+num+"_R_EN_SM.png");}
+  const m=(s&&IMGMAP)?IMGMAP[s]:null;
+  if(m){let num=num0;if(m.p&&/^\d+$/.test(num))num=num.padStart(3,"0");
+    out.push("https://assets.tcgdex.net/en/"+m.t+"/"+num+"/high.webp");}
   return out.filter(u=>u!==cur);
 }
 function imgFail(el){
