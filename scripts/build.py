@@ -140,6 +140,11 @@ def main():
         done_names.append(st["name"])
 
     # ---------- 3 e 4) TCGdex: promos + mapa de imagens ----------
+    LIM_PROMO_CODES = {
+        "MEP Black Star Promos": "MEP", "Scarlet & Violet Black Star Promos": "SVP",
+        "SWSH Black Star Promos": "SP", "SM Black Star Promos": "SMP",
+        "XY Black Star Promos": "XYP",
+    }
     add_promo = 0
     tmap = {}
     try:
@@ -193,9 +198,15 @@ def main():
                     if g: dexs = [g]
                 if not dexs: continue
                 local = name.split("/")[-1][:-3]
+                limcode = LIM_PROMO_CODES.get(our_name)
+                if limcode:
+                    ln = local.zfill(3) if local.isdigit() else local
+                    img = (f"https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/"
+                           f"tpci/{limcode}/{limcode}_{ln}_R_EN_SM.png")
+                else:
+                    img = f"https://assets.tcgdex.net/en/{info['t']}/{local}/high.webp"
                 card = {"name": mn.group(1), "set": our_name, "num": local,
-                        "img": f"https://assets.tcgdex.net/en/{info['t']}/{local}/high.webp",
-                        "rarity": "Promo"}
+                        "img": img, "rarity": "Promo"}
                 if dedup(card) in have: continue
                 nm = re.sub(r"\D", "", local)
                 if nm and any(re.sub(r"\D","",c["num"]).lstrip("0") == nm.lstrip("0")
