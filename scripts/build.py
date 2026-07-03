@@ -208,6 +208,28 @@ def main():
     except Exception as e:
         print(f"  aviso: TCGdex indisponível nesta rodada ({e}); promos/imagens ficam para a próxima")
 
+    # ---------- 5) mapa Limitless (3ª fonte de imagens), via ptcgoCode ----------
+    LIM_OVERRIDES = {
+        "XY Black Star Promos": "XYP", "SM Black Star Promos": "SMP",
+        "SWSH Black Star Promos": "SP", "Scarlet & Violet Black Star Promos": "SVP",
+        "BW Black Star Promos": "BWP", "HGSS Black Star Promos": "HSP",
+        "DP Black Star Promos": "DPP", "Nintendo Black Star Promos": "NP",
+        "Wizards Black Star Promos": "WP", "MEP Black Star Promos": "MEP",
+        "Brilliant Stars Trainer Gallery": "BRS", "Astral Radiance Trainer Gallery": "ASR",
+        "Lost Origin Trainer Gallery": "LOR", "Silver Tempest Trainer Gallery": "SIT",
+        "Crown Zenith Galarian Gallery": "CRZ", "Shining Fates Shiny Vault": "SHF",
+        "Hidden Fates Shiny Vault": "HIF", "Celebrations: Classic Collection": "CEL",
+    }
+    codes = {s["name"]: s.get("ptcgoCode") for s in sets}
+    used = {c["set"] for s in by_dex.values() for c in s["cards"]}
+    used |= {c["set"] for v in library.values() for c in v}
+    limmap = {}
+    for n in sorted(x for x in used if x):
+        cc = LIM_OVERRIDES.get(n) or codes.get(n)
+        if cc and "-" not in cc:
+            limmap[n] = cc
+    save("limmap.json", limmap, sort_keys=True)
+
     # ---------- salvar ----------
     tracker = [by_dex[k] for k in sorted(by_dex)]
     rel = lambda c: (sinfo.get(c["set"], {}).get("releaseDate", "9999/99/99"), c["set"], c["num"])
