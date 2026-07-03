@@ -571,7 +571,7 @@ const ovStats=document.getElementById("ovStats");
 const priceKey=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const priceOf=c=>{if(!PRICES||!PRICES.cards)return null;const v=PRICES.cards[priceKey(c)];return typeof v==="number"?v:null;};
 const fmtEur=v=>"€ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmtMoney=v=>{const r=PRICES&&PRICES.eur_brl;return r?"R$ "+(v*r).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):fmtEur(v);};
+const fmtMoney=v=>{const r=PRICES&&(PRICES.brl_rate||PRICES.eur_brl);return r?"R$ "+(v*r).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):(PRICES&&PRICES.currency==="USD"?"US$ ":"€ ")+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
 function renderStats(){
   const total=DATA.length,own=DATA.filter(isOwned).length,miss=total-own;
   const pct=total?Math.round(own/total*1000)/10:0;
@@ -594,7 +594,9 @@ function renderStats(){
         const ps=s.cards.map(priceOf).filter(x=>x!=null);
         if(ps.length){vMiss+=Math.min(...ps);nMissPriced++;}else noPrice++;
       }});
-    const rateTxt=PRICES.eur_brl?` · convertido de euros (€ 1 = R$ ${PRICES.eur_brl.toLocaleString("pt-BR")}, BCE ${PRICES.rate_date||""})`:"";
+    const _r=PRICES.brl_rate||PRICES.eur_brl;
+    const _m=PRICES.currency==="USD"?"dólares · US$ 1":"euros · € 1";
+    const rateTxt=_r?` · convertido de ${_m} = R$ ${_r.toLocaleString("pt-BR")} · BCE ${PRICES.rate_date||""}`:"";
     price=`<div class="sech">Estimativas de preço</div><div class="pricebox">
       <div class="prow"><span>Valor estimado do que você tem (${nOwnPriced} Pokémon)</span><b>${fmtMoney(vOwn)}</b></div>
       <div class="prow"><span>Para completar — carta mais barata por Pokémon (${nMissPriced} faltantes)</span><b>${fmtMoney(vMiss)}</b></div>
