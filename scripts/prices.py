@@ -44,6 +44,7 @@ def save(name, obj):
               ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 class Budget(RuntimeError): pass
+class PrecosBloqueados(RuntimeError): pass
 
 def get(path, **params):
     global req_count
@@ -68,7 +69,11 @@ def get(path, **params):
             if e.code == 429:
                 print(f"  429; aguardando {20*tent}s…"); time.sleep(20*tent); continue
             if e.code in (401, 403):
-                raise RuntimeError(f"HTTP {e.code}: token recusado — confira o segredo TCGCODEX_TOKEN")
+                if req_count == 0:
+                    raise RuntimeError(f"HTTP {e.code}: token recusado — confira o segredo TCGCODEX_TOKEN")
+                if path.endswith("/prices"):
+                    raise PrecosBloqueados(f"HTTP {e.code} no endpoint de preços")
+                print(f"  HTTP {e.code} em {path}; aguardando {20*tent}s…"); time.sleep(20*tent); continue
             if e.code == 404: return None
             raise
     raise Budget("limite de taxa persistente (429)")
@@ -137,6 +142,10 @@ def main():
         # ---------- A) índice de sets ----------
         if cursor["stage"] == "A":
             idx = []
+            seen_ids = set()
+            byname = {}   # nome nosso normalizado -> código esperado
+            for ourname, code in limmap.items():
+                byname[setkey(ourname)] = code
             totals = load("set_totals.json", {})
             tot_add = 0
             print("A) baixando índice de sets…")
@@ -145,10 +154,18 @@ def main():
                 ident = str(c.get("identifier") or c.get("set_identifier") or "").upper()
                 sid = s.get("id") or c.get("id")
                 game = str(((c.get("game") or {}).get("name")) or "").lower()
+                # casamento extra pelo nome (Trainer Gallery, Galarian Gallery etc.)
+                nm = setkey(c.get("name") or "")
+                if sid and nm in byname and byname[nm] in codes and (not game or "pokemon" in game):
+                    if sid not in seen_ids:
+                        idx.append({"id": sid, "ident": byname[nm], "nome": c.get("name") or ""})
+                        seen_ids.add(sid)
                 if not (ident in codes and sid): continue
+                if sid in seen_ids: continue
                 if game and "pokemon" not in game:      # evita colisão com Lorcana/Magic etc.
                     print(f"   ignorando {ident} do jogo {game!r}"); continue
                 idx.append({"id": sid, "ident": ident, "nome": c.get("name") or ""})
+                seen_ids.add(sid)
                 ptotal = c.get("card_printed_total")
                 if ptotal:
                     for (cd, _), pares in wanted.items():
@@ -182,6 +199,8 @@ def main():
                                 imgs_out[k] = "https://tcgcodex.com/" + str(img).lstrip("/")
                         cursor["pend"].append({"cid": cid, "keys": alvo}); hits += 1
                 cursor["done_sets"].append(cs["id"])
+                prices_tmp = dict(prices); prices_tmp["cards"] = cards_out; prices_tmp["imgs"] = imgs_out
+                save("prices.json", prices_tmp)
                 save("price_cursor.json", cursor)
                 print(f"   {cs['ident']}: {hits} cartas de interesse")
             cursor["stage"] = "C"; save("price_cursor.json", cursor)
@@ -214,6 +233,12 @@ def main():
                     save("prices.json", prices_tmp); save("price_cursor.json", cursor)
     except Budget as e:
         print(f"Pausa: {e}. Progresso salvo; a próxima execução continua de onde parou.")
+    except PrecosBloqueados as e:
+        print(f"AVISO: {e}.")
+        print("O catálogo funcionou, mas o endpoint de preços foi negado. Provável causa:")
+        print("  - preços disponíveis apenas em planos pagos do TCG Codex; ou")
+        print("  - bloqueio temporário. A fila fica salva e será retentada na próxima rodada.")
+        print("As IMAGENS coletadas foram preservadas e já beneficiam o site.")
 
     # ---------- D) cotação EUR->BRL ----------
     rate = prices.get("eur_brl"); rate_date = prices.get("rate_date")
