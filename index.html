@@ -148,6 +148,13 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .pricebox .prow{display:flex;justify-content:space-between;gap:10px;margin:6px 0;font-size:13.5px}
 .pricebox .prow b{font-size:15px}
 .pnote{font-family:var(--mono);font-size:10px;color:var(--ink3);line-height:1.6;margin-top:10px}
+.more{position:relative}
+.menu{display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:60;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:8px;box-shadow:0 12px 34px #0009;min-width:170px}
+.menu.on{display:flex;flex-direction:column;gap:6px}
+.menu .tbtn{width:100%;text-align:left}
+.rcost{font-family:var(--mono);font-size:10.5px;color:var(--gold);width:92px;text-align:right;white-space:nowrap}
+.cprice{display:inline-block;font-family:var(--mono);font-size:10.5px;color:var(--gold);border:1px solid var(--gold-line);border-radius:6px;padding:2px 6px;margin-left:6px}
+.jpline{font-family:var(--mono);font-size:10.5px;color:var(--ink2);padding:0 22px 6px}
 .addrow button{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;background:var(--gold);color:#1a1608;border:0;border-radius:9px;padding:9px 16px;cursor:pointer}
 .addrow button:hover{filter:brightness(1.05)}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--panel2);border:1px solid var(--gold-line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:10px;z-index:80;transition:.25s;pointer-events:none;max-width:90vw;text-align:center}
@@ -164,10 +171,15 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
     <button class="tbtn upd" id="btnUpd" title="Buscar sets recém-lançados agora (o site também atualiza sozinho toda semana)">Atualizar agora</button>
     <button class="tbtn add" id="btnAddSp" title="Adicionar uma carta da biblioteca (Full Arts, Alt Arts, Gold Stars…) ou criar um quadrinho novo">＋ Carta</button>
     <button class="tbtn" id="btnStats" title="Estatísticas da coleção: contagens, regiões e estimativas de preço">📊 Estatísticas</button>
-    <button class="tbtn" id="btnTxt" title="Baixar a lista das cartas que faltam no formato de consulta por lista (para estimar preços no TCG Collector / PriceCharting)">Faltantes .txt</button>
-    <button class="tbtn" id="btnExport">Exportar</button>
-    <button class="tbtn" id="btnImport">Importar</button>
-    <button class="tbtn" id="btnReset">Zerar</button>
+    <div class="more">
+      <button class="tbtn" id="btnMore" aria-haspopup="true">Mais ▾</button>
+      <div class="menu" id="moreMenu">
+        <button class="tbtn" id="btnTxt" title="Lista das faltantes no formato de consulta por lista">Faltantes .txt</button>
+        <button class="tbtn" id="btnExport">Exportar</button>
+        <button class="tbtn" id="btnImport">Importar</button>
+        <button class="tbtn" id="btnReset">Zerar</button>
+      </div>
+    </div>
   </div>
 </div></header>
 <div class="wrap">
@@ -318,13 +330,14 @@ function renderModal(s){
       <span class="mtag"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--r-${s.region})"></span>${own?"Você tem esta espécie":"Ainda falta"}</span>
     </div><button class="close" data-close aria-label="Fechar">✕</button></div></div>
     <div class="msub">${uadded?"Adicionado por você — marque quando tiver uma carta de arte rara":`${L.length} carta${L.length>1?"s":""} — clique na que você possui`}</div>
+    ${(!own&&PRICES&&PRICES.jp&&(PRICES.jp[s.dexn]!=null||PRICES.jp[String(s.dexn)]!=null))?`<div class="jpline">🇯🇵 arte especial japonesa deste Pokémon a partir de ${fmtMoney(PRICES.jp[s.dexn]!=null?PRICES.jp[s.dexn]:PRICES.jp[String(s.dexn)])}</div>`:""}
     <div class="cards">${L.map((c,i)=>{const isc=i>=baseN,ph=c.placeholder;return `
       <div class="cc ${own&&owned[s.species]===i?"have":""} ${isc||c.u?"custom":""}">
         ${isc?`<button class="del" data-del="${i-baseN}" title="Remover">✕</button><span class="cbadge">MINHA</span>`:""}
         ${!isc&&c.u?`<button class="del" data-delu="${i}" title="Remover (adicionada da biblioteca)">✕</button><span class="cbadge">MINHA</span>`:""}
         <div class="ib">${ph?CBACK:(c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" data-fs="${c.set||''}" data-fn="${c.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`)}</div>
         <div class="cm"><div class="cset">${ph?"Marcador":c.set}</div><div class="cnum">${ph?"Carta de arte rara":c.name+(c.num?" · nº "+c.num:"")}</div>
-        ${c.rarity?`<span class="crar">${c.rarity}</span>`:""}
+        ${c.rarity?`<span class="crar">${c.rarity}</span>`:""}${(pv=>pv!=null?`<span class="cprice">${fmtMoney(pv)}</span>`:"")(priceOf(c))}${(jv=>jv!=null?`<span class="cprice">🇯🇵 mesma arte ${fmtMoney(jv)}</span>`:"")(jpxOf(c))}
         <button class="mk" data-card="${i}">${own&&owned[s.species]===i?"✓ Tenho esta":"Marcar como minha"}</button></div>
       </div>`;}).join("")}</div>
     ${uadded?`<div class="rmrow"><button class="rmsp" data-rmsp>Remover este Pokémon da lista</button></div>`:""}
@@ -502,7 +515,7 @@ function renderPicker(dexn){
   aspsub.textContent=`${v[0]} — escolha a carta para adicionar`;
   let html=cards.map((c,i)=>`<button class="libcard" data-i="${i}">
       <span class="lib-ib">${c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" data-fs="${c.set||''}" data-fn="${c.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`}</span>
-      <span class="lib-meta"><b>${c.name}</b><i>${c.set} · nº ${c.num}</i><em>${c.rarity||""}</em></span>
+      <span class="lib-meta"><b>${c.name}</b><i>${c.set} · nº ${c.num}</i><em>${c.rarity||""}${(pv=>pv!=null?` · ${fmtMoney(pv)}`:"")(priceOf(c))}</em></span>
     </button>`).join("");
   if(!sp) html+=`<button class="libcard marker" data-marker>
       <span class="lib-ib">${CBACK}</span>
@@ -565,11 +578,17 @@ function genMissingTxt(){
   toast(`Lista gerada: ${lines.length} carta(s)${skipped?` · ${skipped} sem nº/total omitida(s)`:""}`);
 }
 document.getElementById("btnTxt").onclick=genMissingTxt;
+/* menu Mais */
+const moreMenu=document.getElementById("moreMenu"),btnMore=document.getElementById("btnMore");
+btnMore.onclick=e=>{e.stopPropagation();moreMenu.classList.toggle("on");};
+document.addEventListener("click",e=>{if(!moreMenu.contains(e.target)&&e.target!==btnMore)moreMenu.classList.remove("on");});
+
 
 /* ---------- ESTATÍSTICAS ---------- */
 const ovStats=document.getElementById("ovStats");
 const priceKey=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const priceOf=c=>{if(!PRICES||!PRICES.cards)return null;const v=PRICES.cards[priceKey(c)];return typeof v==="number"?v:null;};
+const jpxOf=c=>{if(!PRICES||!PRICES.jpx)return null;const v=PRICES.jpx[priceKey(c)];return typeof v==="number"?v:null;};
 const fmtEur=v=>"€ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtMoney=v=>{const r=PRICES&&(PRICES.brl_rate||PRICES.eur_brl);return r?"R$ "+(v*r).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):(PRICES&&PRICES.currency==="USD"?"US$ ":"€ ")+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
 function renderStats(){
@@ -577,13 +596,11 @@ function renderStats(){
   const pct=total?Math.round(own/total*1000)/10:0;
   const regs={};DATA.forEach(s=>{(regs[s.region]=regs[s.region]||{t:0,o:0}).t++;if(isOwned(s))regs[s.region].o++;});
   const ORDER=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea","—"];
-  let bars="";
-  ORDER.forEach(r=>{const d=regs[r];if(!d)return;
-    const p=d.t?Math.round(d.o/d.t*100):0;
-    bars+=`<div class="rbarrow"><span class="rlab">${r}</span><div class="rtrk"><div class="rfill" style="--c:var(--r-${r});width:${p}%"></div></div><span class="rnum">${d.o}/${d.t} · ${p}%</span></div>`;});
-  let price="";
+
+  let price="";const regCost={};
   if(PRICES&&PRICES.cards){
-    let vOwn=0,nOwnPriced=0,vMiss=0,nMissPriced=0,noPrice=0;
+    let vOwn=0,nOwnPriced=0,vMiss=0,nMissPriced=0,noPrice=0,vMix=0,nMix=0;
+    const JP=PRICES.jp||{};
     DATA.forEach(s=>{
       const L=combined(s);
       if(isOwned(s)){
@@ -592,19 +609,31 @@ function renderStats(){
         if(p!=null){vOwn+=p;nOwnPriced++;}else noPrice++;
       }else{
         const ps=s.cards.map(priceOf).filter(x=>x!=null);
-        if(ps.length){vMiss+=Math.min(...ps);nMissPriced++;}else noPrice++;
+        const en=ps.length?Math.min(...ps):null;
+        const jx=s.cards.map(jpxOf).filter(x=>x!=null);
+        const jp=jx.length?Math.min(...jx):(JP[s.dexn]!=null?JP[s.dexn]:(JP[String(s.dexn)]!=null?JP[String(s.dexn)]:null));
+        if(en!=null){vMiss+=en;nMissPriced++;regCost[s.region]=(regCost[s.region]||0)+en;}else noPrice++;
+        const mix=(en!=null&&jp!=null)?Math.min(en,jp):(en!=null?en:jp);
+        if(mix!=null){vMix+=mix;nMix++;}
       }});
     const _r=PRICES.brl_rate||PRICES.eur_brl;
     const _m=PRICES.currency==="USD"?"dólares · US$ 1":"euros · € 1";
     const rateTxt=_r?` · convertido de ${_m} = R$ ${_r.toLocaleString("pt-BR")} · BCE ${PRICES.rate_date||""}`:"";
+    const temJp=Object.keys(PRICES.jp||{}).length>0;
     price=`<div class="sech">Estimativas de preço</div><div class="pricebox">
       <div class="prow"><span>Valor estimado do que você tem (${nOwnPriced} Pokémon)</span><b>${fmtMoney(vOwn)}</b></div>
-      <div class="prow"><span>Para completar — carta mais barata por Pokémon (${nMissPriced} faltantes)</span><b>${fmtMoney(vMiss)}</b></div>
+      <div class="prow"><span>Para completar só com cartas em inglês (${nMissPriced} faltantes)</span><b>${fmtMoney(vMiss)}</b></div>
+      ${temJp?`<div class="prow"><span>Para completar misturando japonesas — mesma arte quando mapeada (${nMix})</span><b>${fmtMoney(vMix)}</b></div>`:""}
       <div class="pnote">Estimativas com dados públicos de mercado (${PRICES.source||"—"}, atualização ${PRICES.updated||"—"})${rateTxt}. Preços variam; ${noPrice?noPrice+" Pokémon sem preço disponível; ":""}use como referência, não como avaliação.</div>
     </div>`;
   }else{
     price=`<div class="sech">Estimativas de preço</div><div class="pricebox"><div class="pnote">Os preços ainda não foram configurados. Quando o robô semanal estiver conectado à fonte de preços, este painel mostrará o valor estimado da sua coleção e quanto falta para completá-la com as cartas mais baratas.</div></div>`;
   }
+  let bars="";
+  ORDER.forEach(r=>{const d=regs[r];if(!d)return;
+    const p=d.t?Math.round(d.o/d.t*100):0;
+    const rc=regCost[r];
+    bars+=`<div class="rbarrow"><span class="rlab">${r}</span><div class="rtrk"><div class="rfill" style="--c:var(--r-${r});width:${p}%"></div></div><span class="rnum">${d.o}/${d.t} · ${p}%</span>${rc!=null?`<span class="rcost">${fmtMoney(rc)}</span>`:""}</div>`;});
   document.getElementById("statsbody").innerHTML=`
     <div class="bignums">
       <div class="bignum"><b>${own}</b><span>Tenho</span></div>
