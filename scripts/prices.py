@@ -31,8 +31,8 @@ TCGCSV = "https://tcgcsv.com/tcgplayer/3"     # 3 = Pokémon
 CODEX  = "https://tcgcodex.com/api/v1"
 TOKEN  = (os.environ.get("TCGCODEX_TOKEN") or "").strip()
 
-MAX_REQUESTS = int(os.environ.get("PRICES_MAX_REQUESTS", "260"))
-SLEEP = 0.3
+MAX_REQUESTS = int(os.environ.get("PRICES_MAX_REQUESTS", "520"))
+SLEEP = 0.15
 req_count = 0
 
 def load(name, default):
@@ -71,8 +71,9 @@ def loosenum(num):
     return m.group(1) if m else n
 
 def wanted_map():
-    """(código, nº frouxo) -> {(nosso set, nosso nº)} — base IR/SIR + extras."""
+    """(código, nº frouxo) -> {(nosso set, nosso nº)} — base + extras + biblioteca."""
     tracker = load("tracker.json", []); extras = load("extras.json", [])
+    library = load("library.json", {})
     limmap = load("limmap.json", {})
     w = {}
     def note(sn, num):
@@ -81,6 +82,8 @@ def wanted_map():
     for s in tracker:
         for c in s["cards"]: note(c.get("set"), c.get("num"))
     for e in extras: note(e.get("set"), e.get("num"))
+    for v in library.values():
+        for c in v: note(c.get("set"), c.get("num"))
     return w, limmap
 
 # =====================================================================
@@ -89,17 +92,45 @@ def wanted_map():
 def precos_tcgcsv(wanted, limmap, cards_out):
     codes = {c for c, _ in wanted}
     nomes = {setkey(n): limmap[n] for n in limmap}
+    # apelidos: código nosso -> trecho que aparece no nome do grupo do TCGplayer
+    ALIAS_TOKENS = {
+        "SVP": "svblackstarpromo", "SP": "swshblackstarpromo",
+        "SMP": "smblackstarpromo", "XYP": "xyblackstarpromo",
+        "BWP": "bwblackstarpromo", "HSP": "hgssblackstarpromo",
+        "DPP": "dpblackstarpromo", "NP": "nintendoblackstarpromo",
+        "WP": "wizardsblackstarpromo", "MEP": "meblackstarpromo",
+        "CEL": "celebrations",
+    }
+    ALT_TOKENS = {  # variações comuns dos nomes de grupos de promo
+        "SVP": ["scarletvioletpromo"], "SP": ["swordshieldpromo"],
+        "SMP": ["sunmoonpromo"], "XYP": ["xypromo"], "BWP": ["blackwhitepromo"],
+        "HSP": ["heartgoldsoulsilverpromo"], "DPP": ["diamondpearlpromo"],
+        "MEP": ["megaevolutionpromo", "megapromo"],
+    }
     print("PREÇOS (TCGcsv/TCGplayer)…")
     grupos = (http_json(f"{TCGCSV}/groups") or {}).get("results") or []
     print(f"  grupos de Pokémon no TCGplayer: {len(grupos)}")
-    casados = []
+    casados = []; usados = set()
     for g in grupos:
         ab = str(g.get("abbreviation") or "").upper()
         nk = setkey(g.get("name") or "")
         code = ab if ab in codes else nomes.get(nk)
+        if not code:
+            for cd, tok in ALIAS_TOKENS.items():
+                if cd in codes and tok in nk: code = cd; break
+        if not code:
+            for cd, toks in ALT_TOKENS.items():
+                if cd in codes and any(x in nk for x in toks): code = cd; break
+        if not code:
+            # último recurso: nome do nosso set contido no nome do grupo
+            for onk, cd in nomes.items():
+                if cd in codes and len(onk) > 8 and onk in nk: code = cd; break
         if code and code in codes:
             casados.append((g.get("groupId"), code, g.get("name")))
+            usados.add(code)
     print(f"  sets casados: {len(casados)}")
+    faltando = sorted(codes - usados)
+    if faltando: print(f"  códigos SEM grupo no TCGplayer: {faltando}")
     novos = 0
     for gid, code, gname in casados:
         prods = (http_json(f"{TCGCSV}/{gid}/products") or {}).get("results") or []
@@ -129,6 +160,108 @@ def precos_tcgcsv(wanted, limmap, cards_out):
                 n_set += 1; novos += 1
         if n_set: print(f"  {code} ({gname}): {n_set} preços")
     print(f"  preços gravados/atualizados: {novos}")
+
+# =====================================================================
+# PARTE 1b — preços japoneses (TCGplayer categoria Japão, via TCGcsv)
+# =====================================================================
+# Linhagem: qual(is) set(s) japonês(es) deram origem a cada set inglês da era
+# IR/SIR. Tokens normalizados procurados no NOME do grupo japonês do TCGplayer.
+# O nome do próprio set inglês também é sempre tentado (cobre nomes idênticos,
+# como Black Bolt / White Flare e a era Mega Evolution).
+LINEAGE = {
+ "Scarlet & Violet": ["scarletex", "violetex"],
+ "Paldea Evolved": ["tripletbeat", "snowhazard", "clayburst"],
+ "Obsidian Flames": ["ruleroftheblackflame"],
+ "151": ["pokemoncard151", "151"],
+ "Paradox Rift": ["ancientroar", "futureflash"],
+ "Paldean Fates": ["shinytreasure"],
+ "Temporal Forces": ["wildforce", "cyberjudge"],
+ "Twilight Masquerade": ["crimsonhaze", "maskofchange"],
+ "Shrouded Fable": ["nightwanderer"],
+ "Stellar Crown": ["stellarmiracle"],
+ "Surging Sparks": ["superelectricbreaker"],
+ "Prismatic Evolutions": ["terastalfest"],
+ "Journey Together": ["battlepartners"],
+ "Destined Rivals": ["gloryofteamrocket", "heatwavearena"],
+}
+def precos_japones(jp_out, jpx_out, tracker):
+    """Menor preço japonês por Pokémon (jp_out) e, quando a linhagem do set é
+    conhecida, o preço da MESMA ARTE por carta inglesa (jpx_out)."""
+    dexmap = load("dexmap.json", {})
+    name2dex = {v[0].lower(): int(k) for k, v in dexmap.items()}
+    def guess(nm):
+        n = str(nm or "").split(" - ")[0].strip().lower()
+        n = re.sub(r"\(.*?\)", "", n).strip()
+        n = re.sub(r"^(mega|team rocket's|ethan's|misty's|steven's|marnie's|cynthia's|"
+                   r"arven's|iono's|lillie's|hop's|n's)\s+", "", n)
+        n = re.sub(r"\s+(ex|gx|v|vmax|vstar)$", "", n)
+        return name2dex.get(n.strip())
+    print("PREÇOS JAPONESES (TCGcsv)…")
+    cats = (http_json("https://tcgcsv.com/tcgplayer/categories") or {}).get("results") or []
+    cat = None
+    for c in cats:
+        nm = str(c.get("name") or "").lower()
+        if "japan" in nm and "pokemon" in nm.replace("é", "e"): cat = c; break
+    if not cat:
+        print("  categoria japonesa não encontrada — etapa pulada."); return
+    cid = cat.get("categoryId")
+    grupos = (http_json(f"https://tcgcsv.com/tcgplayer/{cid}/groups") or {}).get("results") or []
+    grupos = [g for g in grupos if str(g.get("publishedOn") or "") >= "2022-10"]
+    print(f"  sets japoneses desde a era AR/SAR: {len(grupos)}")
+    RAR_OK = {"artrare": "ar", "specialartrare": "sar", "ar": "ar", "sar": "sar"}
+    achados = 0
+    gdata = {}   # nome normalizado do grupo -> {(dexn, camada): menor preço}
+    for g in grupos:
+        gid = g.get("groupId"); gnk = setkey(g.get("name") or "")
+        prods = (http_json(f"https://tcgcsv.com/tcgplayer/{cid}/{gid}/products") or {}).get("results") or []
+        precos = (http_json(f"https://tcgcsv.com/tcgplayer/{cid}/{gid}/prices") or {}).get("results") or []
+        por = {}
+        for p in precos:
+            v = p.get("marketPrice") or p.get("midPrice") or p.get("lowPrice")
+            try: v = float(v)
+            except (TypeError, ValueError): continue
+            if v > 0: por[p.get("productId")] = min(v, por.get(p.get("productId"), v))
+        tabela = gdata.setdefault(gnk, {})
+        for pr in prods:
+            rar = ""
+            for ed in (pr.get("extendedData") or []):
+                if str(ed.get("name", "")).lower() == "rarity":
+                    rar = re.sub(r"[^a-z]", "", str(ed.get("value", "")).lower())
+            camada = RAR_OK.get(rar)
+            if not camada: continue
+            v = por.get(pr.get("productId"))
+            if v is None: continue
+            base = str(pr.get("name") or "")
+            for parte in base.split("&"):
+                d = guess(parte)
+                if d is None: continue
+                jp_out[str(d)] = min(round(v, 2), jp_out.get(str(d), 10**9))
+                ch = (d, camada)
+                tabela[ch] = min(round(v, 2), tabela.get(ch, 10**9))
+                achados += 1
+    print(f"  espécies com preço japonês: {len(jp_out)} ({achados} cartas AR/SAR casadas)")
+
+    # ----- casamento arte-a-arte pela linhagem -----
+    TIER = {"Illustration Rare": "ar", "Special Illustration Rare": "sar"}
+    sem_fonte = set(); casadas = 0
+    for sp in tracker:
+        for c in sp["cards"]:
+            camada = TIER.get(c.get("rarity"))
+            if not camada: continue
+            en = c.get("set") or ""
+            tokens = list(LINEAGE.get(en, [])) + [setkey(en)]
+            fontes = [tab for gnk, tab in gdata.items()
+                      if any(tok and tok in gnk for tok in tokens)]
+            if not fontes:
+                sem_fonte.add(en); continue
+            vals = [tab[(sp["dexn"], camada)] for tab in fontes if (sp["dexn"], camada) in tab]
+            if not vals: continue
+            jpx_out[f"{setkey(en)}|{numkey(c.get('num'))}"] = min(vals)
+            casadas += 1
+    print(f"  mesma arte (linhagem): {casadas} cartas casadas")
+    if sem_fonte:
+        print(f"  sets EN sem fonte japonesa casada: {sorted(sem_fonte)}")
+        print(f"  (nomes dos grupos JP para calibrar: {sorted(gdata.keys())[:40]}…)")
 
 # =====================================================================
 # PARTE 2 — imagens do TCG Codex (catálogo; retomável)
@@ -199,8 +332,11 @@ def main():
     cards_out = prices.get("cards", {})
     imgs_out  = prices.get("imgs", {})
 
+    jp_out = prices.get("jp", {}); jpx_out = prices.get("jpx", {})
+    tracker = load("tracker.json", [])
     try:
         precos_tcgcsv(wanted, limmap, cards_out)
+        precos_japones(jp_out, jpx_out, tracker)
     except Budget as e:
         print(f"pausa nos preços: {e}")
     except Exception as e:
@@ -219,8 +355,8 @@ def main():
     save("prices.json", {"source": "TCGplayer via TCGcsv",
                          "updated": datetime.date.today().isoformat(),
                          "currency": "USD", "brl_rate": rate, "rate_date": rate_date,
-                         "cards": cards_out, "imgs": imgs_out})
-    print(f"prices.json: {len(cards_out)} preços | {len(imgs_out)} imagens | req: {req_count} | US$ 1 = R$ {rate}")
+                         "cards": cards_out, "imgs": imgs_out, "jp": jp_out, "jpx": jpx_out})
+    print(f"prices.json: {len(cards_out)} preços | {len(jp_out)} espécies JP | {len(jpx_out)} mesma-arte | {len(imgs_out)} imagens | req: {req_count} | US$ 1 = R$ {rate}")
 
 if __name__ == "__main__":
     main()
