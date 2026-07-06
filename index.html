@@ -155,6 +155,18 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .rcost{font-family:var(--mono);font-size:10.5px;color:var(--gold);width:92px;text-align:right;white-space:nowrap}
 .cprice{display:inline-block;font-family:var(--mono);font-size:10.5px;color:var(--gold);border:1px solid var(--gold-line);border-radius:6px;padding:2px 6px;margin-left:6px}
 .jpline{font-family:var(--mono);font-size:10.5px;color:var(--ink2);padding:0 22px 6px}
+.huntb{position:absolute;left:8px;top:8px;z-index:3;font-size:13px;filter:drop-shadow(0 1px 3px #000a)}
+.huntbtn{margin-top:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;color:var(--ink2);background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;cursor:pointer;transition:.15s}
+.huntbtn:hover{border-color:var(--gold-line);color:var(--ink)}
+.huntbtn.on{color:var(--gold);border-color:var(--gold-line)}
+.tgt{display:flex;justify-content:space-between;gap:10px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin:5px 0;cursor:pointer;transition:.14s;font-size:13px;align-items:center}
+.tgt:hover{border-color:var(--gold)}
+.tgt .tp{font-family:var(--mono);font-size:11px;color:var(--gold);white-space:nowrap}
+.tgt .tn{font-weight:600}
+.tgt .td{font-family:var(--mono);font-size:10px;color:var(--ink3)}
+.histbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:6px}
+.histleg{display:flex;gap:16px;font-family:var(--mono);font-size:10px;color:var(--ink3);margin-bottom:6px}
+.histleg i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .addrow button{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;background:var(--gold);color:#1a1608;border:0;border-radius:9px;padding:9px 16px;cursor:pointer}
 .addrow button:hover{filter:brightness(1.05)}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--panel2);border:1px solid var(--gold-line);color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:10px;z-index:80;transition:.25s;pointer-events:none;max-width:90vw;text-align:center}
@@ -185,7 +197,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 <div class="wrap">
   <div class="controls">
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Buscar Pokémon, set ou carta…" autocomplete="off"></div>
-    <div class="seg" role="group" aria-label="Status"><button data-st="all" aria-pressed="true">Todos</button><button data-st="have">Tenho</button><button data-st="need">Faltam</button></div>
+    <div class="seg" role="group" aria-label="Status"><button data-st="all" aria-pressed="true">Todos</button><button data-st="have">Tenho</button><button data-st="need">Faltam</button><button data-st="hunt">🎯</button></div>
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"></div>
@@ -212,7 +224,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={},PRICES=null;const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
-let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[];
+let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[],hunt={},hist=[];
 let filterRegion=null,filterStatus="all",query="",freshDex=new Set();
 const CBACK=`<div class="cback" title="Carta de arte rara (marcador)"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#e9edff" stroke="#0f1526" stroke-width="4"/><path d="M50 10a40 40 0 0 1 40 40H10a40 40 0 0 1 40-40z" fill="#c6d2ff"/><path d="M10 50h80" stroke="#0f1526" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="#fff" stroke="#0f1526" stroke-width="5"/></svg></div>`;
 
@@ -228,6 +240,8 @@ let sT;function save(){clearTimeout(sT);sT=setTimeout(async()=>{
   await store.set("owned_v1",JSON.stringify(owned));
   await store.set("custom_v1",JSON.stringify(custom));},250);}
 async function saveUsp(){await store.set("usp_v1",JSON.stringify(userSpecies));}
+async function saveHunt(){await store.set("hunt_v1",JSON.stringify(hunt));}
+async function saveHist(){await store.set("hist_v1",JSON.stringify(hist));}
 
 /* ---- montar dataset de trabalho = BASE + atualizações incorporadas ---- */
 const dedup=c=>((c.set||"").toLowerCase().replace(/[^a-z0-9]/g,""))+"|"+String(c.num||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
@@ -295,6 +309,7 @@ function tile(s){
   const imgHtml=rc.placeholder?CBACK:(rc.img?`<img loading="lazy" decoding="async" src="${rc.img}" alt="${s.species}" data-fs="${rc.set||''}" data-fn="${rc.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`);
   el.innerHTML=`<div class="chk" data-toggle title="${own?'Marcar como faltante':'Marcar como minha'}"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
     ${multi?`<div class="multi">×${n}</div>`:""}
+    ${(!own&&hunt[s.species])?`<div class="huntb" title="Na lista de caçada">🎯</div>`:""}
     <div class="rbar" style="--c:var(--r-${s.region})"></div>
     <div class="imgbox">${imgHtml}</div>
     <div class="meta"><div class="dexn">${s.dex} · ${s.region}</div><div class="name">${s.species}</div></div>`;
@@ -307,16 +322,17 @@ function render(){
     if(filterRegion&&s.region!==filterRegion)return false;
     if(filterStatus==="have"&&!isOwned(s))return false;
     if(filterStatus==="need"&&isOwned(s))return false;
+    if(filterStatus==="hunt"&&(!hunt[s.species]||isOwned(s)))return false;
     if(nq&&!norm(s.species).includes(nq)&&!s.dex.includes(nq)&&!combined(s).some(c=>norm(c.set||"").includes(nq)||norm(c.name||"").includes(nq)))return false;return true;});
   grid.innerHTML="";
   if(!list.length){grid.innerHTML=`<div class="empty">Nenhum Pokémon com esses filtros.</div>`;return;}
   const f=document.createDocumentFragment();list.forEach(s=>f.appendChild(tile(s)));grid.appendChild(f);
 }
-function quickToggle(s){if(isOwned(s))delete owned[s.species];else owned[s.species]=0;save();afterChange(s,isOwned(s)?"Marcado: "+s.species:"Removido: "+s.species);}
-function setCard(s,idx){if(owned[s.species]===idx){delete owned[s.species];toast("Removido: "+s.species);}else{owned[s.species]=idx;toast("Tenho: "+s.species);}save();afterChange(s);if(ovEl.classList.contains("on"))renderModal(s);}
+function quickToggle(s){if(isOwned(s))delete owned[s.species];else{owned[s.species]=0;if(hunt[s.species]){delete hunt[s.species];saveHunt();toast("🎯 Caçada concluída: "+s.species);}}save();afterChange(s,isOwned(s)?"Marcado: "+s.species:"Removido: "+s.species);}
+function setCard(s,idx){if(owned[s.species]===idx){delete owned[s.species];toast("Removido: "+s.species);}else{owned[s.species]=idx;if(hunt[s.species]){delete hunt[s.species];saveHunt();toast("🎯 Caçada concluída: "+s.species);}else{toast("Tenho: "+s.species);}}save();afterChange(s);if(ovEl.classList.contains("on"))renderModal(s);}
 function afterChange(s,msg){updProgress();buildChips();
   const t=grid.querySelector(`.card[data-i="${s._i}"]`);
-  const vis=!((filterStatus==="have"&&!isOwned(s))||(filterStatus==="need"&&isOwned(s)));
+  const vis=!((filterStatus==="have"&&!isOwned(s))||(filterStatus==="need"&&isOwned(s))||(filterStatus==="hunt"&&(!hunt[s.species]||isOwned(s))));
   if(t&&vis){t.replaceWith(tile(s));}else render();if(msg)toast(msg);}
 const ovEl=document.getElementById("ov");
 function openModal(s){renderModal(s);ovEl.classList.add("on");document.body.style.overflow="hidden";}
@@ -328,6 +344,7 @@ function renderModal(s){
     <div class="mhd"><div class="rowx"><div>
       <div class="dexn">${s.dex} · ${s.region}</div><h2>${s.species}</h2>
       <span class="mtag"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--r-${s.region})"></span>${own?"Você tem esta espécie":"Ainda falta"}</span>
+      ${!own?`<button class="huntbtn ${hunt[s.species]?"on":""}" data-hunt>🎯 ${hunt[s.species]?"Caçando — remover":"Adicionar à caçada"}</button>`:""}
     </div><button class="close" data-close aria-label="Fechar">✕</button></div></div>
     <div class="msub">${uadded?"Adicionado por você — marque quando tiver uma carta de arte rara":`${L.length} carta${L.length>1?"s":""} — clique na que você possui`}</div>
     ${(!own&&PRICES&&PRICES.jp&&(PRICES.jp[s.dexn]!=null||PRICES.jp[String(s.dexn)]!=null))?`<div class="jpline">🇯🇵 arte especial japonesa deste Pokémon a partir de ${fmtMoney(PRICES.jp[s.dexn]!=null?PRICES.jp[s.dexn]:PRICES.jp[String(s.dexn)])}</div>`:""}
@@ -363,6 +380,7 @@ function renderModal(s){
   modal.querySelectorAll("[data-delu]").forEach(b=>b.onclick=()=>delLibCard(s,+b.dataset.delu));
   modal.querySelector("[data-add]").onclick=()=>addCustom(s);
   const rm=modal.querySelector("[data-rmsp]");if(rm)rm.onclick=()=>removeUserSpecies(s);
+  const hb=modal.querySelector("[data-hunt]");if(hb)hb.onclick=async()=>{if(hunt[s.species])delete hunt[s.species];else hunt[s.species]=1;await saveHunt();renderModal(s);const t=grid.querySelector(`.card[data-i="${s._i}"]`);if(t)t.replaceWith(tile(s));};
 }
 async function delLibCard(s,i){
   const card=combined(s)[i];if(!card)return;
@@ -591,56 +609,111 @@ const priceOf=c=>{if(!PRICES||!PRICES.cards)return null;const v=PRICES.cards[pri
 const jpxOf=c=>{if(!PRICES||!PRICES.jpx)return null;const v=PRICES.jpx[priceKey(c)];return typeof v==="number"?v:null;};
 const fmtEur=v=>"€ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtMoney=v=>{const r=PRICES&&(PRICES.brl_rate||PRICES.eur_brl);return r?"R$ "+(v*r).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):(PRICES&&PRICES.currency==="USD"?"US$ ":"€ ")+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
-function renderStats(){
+function computeAgg(){
   const total=DATA.length,own=DATA.filter(isOwned).length,miss=total-own;
   const pct=total?Math.round(own/total*1000)/10:0;
   const regs={};DATA.forEach(s=>{(regs[s.region]=regs[s.region]||{t:0,o:0}).t++;if(isOwned(s))regs[s.region].o++;});
+  const A={total,own,miss,pct,regs,regCost:{},priced:false,vOwn:0,vMiss:0,vMix:0,
+           nOwnPriced:0,nMissPriced:0,nMix:0,noPrice:0,missList:[],huntN:0,huntEn:0,huntMix:0,huntSemPreco:0};
+  if(!PRICES||!PRICES.cards)return A;
+  A.priced=true;const JP=PRICES.jp||{};
+  DATA.forEach(s=>{
+    const L=combined(s);
+    if(isOwned(s)){
+      const sel=L[owned[s.species]]||L[0];let p=sel?priceOf(sel):null;
+      if(p==null){const ps=L.map(priceOf).filter(x=>x!=null);p=ps.length?Math.min(...ps):null;}
+      if(p!=null){A.vOwn+=p;A.nOwnPriced++;}else A.noPrice++;
+      return;
+    }
+    const ps=s.cards.map(priceOf).filter(x=>x!=null);
+    const en=ps.length?Math.min(...ps):null;
+    const jx=s.cards.map(jpxOf).filter(x=>x!=null);
+    const jp=jx.length?Math.min(...jx):(JP[s.dexn]!=null?JP[s.dexn]:(JP[String(s.dexn)]!=null?JP[String(s.dexn)]:null));
+    const mix=(en!=null&&jp!=null)?Math.min(en,jp):(en!=null?en:jp);
+    if(en!=null){A.vMiss+=en;A.nMissPriced++;A.regCost[s.region]=(A.regCost[s.region]||0)+en;
+      A.missList.push({i:s._i,name:s.species,dex:s.dex,en,jp});}
+    else A.noPrice++;
+    if(mix!=null){A.vMix+=mix;A.nMix++;}
+    if(hunt[s.species]){A.huntN++;
+      if(en!=null)A.huntEn+=en;else A.huntSemPreco++;
+      if(mix!=null)A.huntMix+=mix;}
+  });
+  return A;
+}
+function snapshotHist(){
+  const A=computeAgg();if(!A.priced)return;
+  const hoje=new Date().toISOString().slice(0,10);
+  const e={d:hoje,o:A.own,vo:Math.round(A.vOwn*100)/100,vm:Math.round(A.vMiss*100)/100,vx:Math.round(A.vMix*100)/100};
+  if(hist.length&&hist[hist.length-1].d===hoje)hist[hist.length-1]=e;else hist.push(e);
+  if(hist.length>400)hist=hist.slice(-400);
+  saveHist();
+}
+function histSvg(){
+  if(hist.length<2)return `<div class="pnote">O histórico começou a ser gravado hoje — a cada visita, o site fotografa o valor da coleção e o custo para completar. Em alguns dias o gráfico aparece aqui.</div>`;
+  const W=540,H=120,P=8;
+  const vs=hist.map(e=>e.vo).concat(hist.map(e=>e.vm));
+  const mx=Math.max(...vs,1);
+  const X=i=>P+i*(W-2*P)/(hist.length-1);
+  const Y=v=>H-P-(v/mx)*(H-2*P);
+  const linha=k=>hist.map((e,i)=>`${X(i).toFixed(1)},${Y(e[k]).toFixed(1)}`).join(" ");
+  const u=hist[hist.length-1];
+  return `<div class="histbox">
+    <div class="histleg"><span><i style="background:var(--gold)"></i>valor da coleção · ${fmtMoney(u.vo)}</span>
+    <span><i style="background:#7f9dff"></i>custo p/ completar · ${fmtMoney(u.vm)}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">
+      <polyline points="${linha("vm")}" fill="none" stroke="#7f9dff" stroke-width="2"/>
+      <polyline points="${linha("vo")}" fill="none" stroke="var(--gold)" stroke-width="2.5"/>
+    </svg>
+    <div class="histleg"><span>${hist[0].d}</span><span style="margin-left:auto">${u.d}</span></div>
+  </div>`;
+}
+function renderStats(){
+  const A=computeAgg();
   const ORDER=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea","—"];
-
-  let price="";const regCost={};
-  if(PRICES&&PRICES.cards){
-    let vOwn=0,nOwnPriced=0,vMiss=0,nMissPriced=0,noPrice=0,vMix=0,nMix=0;
-    const JP=PRICES.jp||{};
-    DATA.forEach(s=>{
-      const L=combined(s);
-      if(isOwned(s)){
-        const sel=L[owned[s.species]]||L[0];let p=sel?priceOf(sel):null;
-        if(p==null){const ps=L.map(priceOf).filter(x=>x!=null);p=ps.length?Math.min(...ps):null;}
-        if(p!=null){vOwn+=p;nOwnPriced++;}else noPrice++;
-      }else{
-        const ps=s.cards.map(priceOf).filter(x=>x!=null);
-        const en=ps.length?Math.min(...ps):null;
-        const jx=s.cards.map(jpxOf).filter(x=>x!=null);
-        const jp=jx.length?Math.min(...jx):(JP[s.dexn]!=null?JP[s.dexn]:(JP[String(s.dexn)]!=null?JP[String(s.dexn)]:null));
-        if(en!=null){vMiss+=en;nMissPriced++;regCost[s.region]=(regCost[s.region]||0)+en;}else noPrice++;
-        const mix=(en!=null&&jp!=null)?Math.min(en,jp):(en!=null?en:jp);
-        if(mix!=null){vMix+=mix;nMix++;}
-      }});
-    const _r=PRICES.brl_rate||PRICES.eur_brl;
-    const _m=PRICES.currency==="USD"?"dólares · US$ 1":"euros · € 1";
-    const rateTxt=_r?` · convertido de ${_m} = R$ ${_r.toLocaleString("pt-BR")} · BCE ${PRICES.rate_date||""}`:"";
+  let bars="";
+  ORDER.forEach(r=>{const d=A.regs[r];if(!d)return;
+    const p=d.t?Math.round(d.o/d.t*100):0;const rc=A.regCost[r];
+    bars+=`<div class="rbarrow"><span class="rlab">${r}</span><div class="rtrk"><div class="rfill" style="--c:var(--r-${r});width:${p}%"></div></div><span class="rnum">${d.o}/${d.t} · ${p}%</span>${rc!=null?`<span class="rcost">${fmtMoney(rc)}</span>`:""}</div>`;});
+  let price="",alvos="",caca="";
+  if(A.priced){
     const temJp=Object.keys(PRICES.jp||{}).length>0;
+    const rate=PRICES.brl_rate||PRICES.eur_brl;
+    const moeda=PRICES.currency==="USD"?"dólares · US$ 1":"euros · € 1";
+    const rateTxt=rate?` · convertido de ${moeda} = R$ ${rate.toLocaleString("pt-BR")} · BCE ${PRICES.rate_date||""}`:"";
     price=`<div class="sech">Estimativas de preço</div><div class="pricebox">
-      <div class="prow"><span>Valor estimado do que você tem (${nOwnPriced} Pokémon)</span><b>${fmtMoney(vOwn)}</b></div>
-      <div class="prow"><span>Para completar só com cartas em inglês (${nMissPriced} faltantes)</span><b>${fmtMoney(vMiss)}</b></div>
-      ${temJp?`<div class="prow"><span>Para completar misturando japonesas — mesma arte quando mapeada (${nMix})</span><b>${fmtMoney(vMix)}</b></div>`:""}
-      <div class="pnote">Estimativas com dados públicos de mercado (${PRICES.source||"—"}, atualização ${PRICES.updated||"—"})${rateTxt}. Preços variam; ${noPrice?noPrice+" Pokémon sem preço disponível; ":""}use como referência, não como avaliação.</div>
+      <div class="prow"><span>Valor estimado do que você tem · ${A.nOwnPriced} Pokémon</span><b>${fmtMoney(A.vOwn)}</b></div>
+      <div class="prow"><span>Para completar só com cartas em inglês · ${A.nMissPriced} faltantes</span><b>${fmtMoney(A.vMiss)}</b></div>
+      ${temJp?`<div class="prow"><span>Misturando japonesas — mesma arte quando mapeada · ${A.nMix}</span><b>${fmtMoney(A.vMix)}</b></div>`:""}
+      <div class="pnote">Fonte ${PRICES.source||"—"} · atualização ${PRICES.updated||"—"}${rateTxt}. Preços variam; ${A.noPrice?A.noPrice+" Pokémon sem preço; ":""}use como referência.</div>
+    </div>`;
+    const asc=[...A.missList].sort((a,b)=>a.en-b.en);
+    const desc=[...A.missList].sort((a,b)=>b.en-a.en);
+    const item=t=>`<div class="tgt" data-si="${t.i}"><span><span class="tn">${t.name}</span> <span class="td">${t.dex}</span></span><span class="tp">${fmtMoney(t.en)}${t.jp!=null&&t.jp<t.en?` · 🇯🇵 ${fmtMoney(t.jp)}`:""}</span></div>`;
+    const dez=asc.slice(0,10),cinco=desc.slice(0,5);
+    const somaDez=dez.reduce((a,t)=>a+t.en,0);
+    alvos=`<div class="sech">Alvos de compra</div>
+      <div class="pnote" style="margin:0 0 6px">As 10 faltantes mais baratas — complete ${dez.length} Pokémon por ${fmtMoney(somaDez)}:</div>
+      ${dez.map(item).join("")}
+      <div class="pnote" style="margin:12px 0 6px">As 5 mais caras — os seus troféus:</div>
+      ${cinco.map(item).join("")}`;
+    caca=`<div class="sech">Caçada 🎯</div><div class="pricebox">
+      ${A.huntN?`<div class="prow"><span>Pokémon na caçada</span><b>${A.huntN}</b></div>
+      <div class="prow"><span>Custo em inglês${A.huntSemPreco?` · ${A.huntSemPreco} sem preço`:""}</span><b>${fmtMoney(A.huntEn)}</b></div>
+      <div class="prow"><span>Misturando japonesas</span><b>${fmtMoney(A.huntMix)}</b></div>`
+      :`<div class="pnote">Abra um Pokémon faltante e toque em 🎯 Adicionar à caçada. O filtro 🎯 na barra mostra só os caçados, e aqui aparece o custo somado da onda de compras.</div>`}
     </div>`;
   }else{
-    price=`<div class="sech">Estimativas de preço</div><div class="pricebox"><div class="pnote">Os preços ainda não foram configurados. Quando o robô semanal estiver conectado à fonte de preços, este painel mostrará o valor estimado da sua coleção e quanto falta para completá-la com as cartas mais baratas.</div></div>`;
+    price=`<div class="sech">Estimativas de preço</div><div class="pricebox"><div class="pnote">Os preços ainda não foram carregados. Assim que o robô semanal gravar o data/prices.json, este painel mostra valores, alvos de compra e o gráfico de evolução.</div></div>`;
   }
-  let bars="";
-  ORDER.forEach(r=>{const d=regs[r];if(!d)return;
-    const p=d.t?Math.round(d.o/d.t*100):0;
-    const rc=regCost[r];
-    bars+=`<div class="rbarrow"><span class="rlab">${r}</span><div class="rtrk"><div class="rfill" style="--c:var(--r-${r});width:${p}%"></div></div><span class="rnum">${d.o}/${d.t} · ${p}%</span>${rc!=null?`<span class="rcost">${fmtMoney(rc)}</span>`:""}</div>`;});
   document.getElementById("statsbody").innerHTML=`
     <div class="bignums">
-      <div class="bignum"><b>${own}</b><span>Tenho</span></div>
-      <div class="bignum"><b>${miss}</b><span>Faltam</span></div>
-      <div class="bignum"><b>${pct}%</b><span>Completo</span></div>
+      <div class="bignum"><b>${A.own}</b><span>Tenho</span></div>
+      <div class="bignum"><b>${A.miss}</b><span>Faltam</span></div>
+      <div class="bignum"><b>${A.pct}%</b><span>Completo</span></div>
     </div>
-    <div class="sech">Por região</div>${bars}${price}`;
+    <div class="sech">Evolução</div>${histSvg()}
+    <div class="sech">Por região</div>${bars}${price}${alvos}${caca}`;
+  document.querySelectorAll("#statsbody .tgt").forEach(el=>el.onclick=()=>{const s=DATA[+el.dataset.si];if(s){closeStats();openModal(s);}});
 }
 function openStats(){renderStats();ovStats.classList.add("on");document.body.style.overflow="hidden";}
 function closeStats(){ovStats.classList.remove("on");document.body.style.overflow="";}
@@ -651,8 +724,8 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovStats.classList.c
 
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));filterStatus=b.dataset.st;render();});
 let qT;document.getElementById("q").addEventListener("input",e=>{query=e.target.value;clearTimeout(qT);qT=setTimeout(render,120);});
-btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:4,owned,custom,extra,updatedSets,userSpecies},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
-btnImport.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const j=JSON.parse(rd.result);owned=j.owned||j||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];userSpecies=j.userSpecies||[];await store.set("extra_v1",JSON.stringify(extra));await store.set("usets_v1",JSON.stringify(updatedSets));await saveUsp();save();buildWorking();updProgress();buildChips();render();toast("Progresso importado");}catch(e){toast("Arquivo inválido");}};rd.readAsText(f);};inp.click();};
+btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
+btnImport.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const j=JSON.parse(rd.result);owned=j.owned||j||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];userSpecies=j.userSpecies||[];hunt=j.hunt||{};hist=j.hist||[];await saveHunt();await saveHist();await store.set("extra_v1",JSON.stringify(extra));await store.set("usets_v1",JSON.stringify(updatedSets));await saveUsp();save();buildWorking();updProgress();buildChips();render();toast("Progresso importado");}catch(e){toast("Arquivo inválido");}};rd.readAsText(f);};inp.click();};
 btnReset.onclick=()=>{if(confirm("Zerar o progresso marcado? (Os sets atualizados continuam.)")){owned={};custom={};save();updProgress();buildChips();render();toast("Progresso zerado");}};
 document.getElementById("foot").innerHTML=`<b><span id="footTot">${TOTAL}</span> Pokémon</b> com carta Alt Art · IR · SIR catalogada. Fonte: dataset comunitário Pokémon TCG (GitHub).<br>Este site se atualiza sozinho toda semana via GitHub Actions. O botão <b>Atualizar agora</b> busca sets novíssimos na hora. Seu progresso fica salvo neste navegador/dispositivo — use <b>Exportar/Importar</b> para levar a outro aparelho.`;
 
@@ -694,6 +767,8 @@ async function loadData(){
   extra=parse(await store.get("extra_v1"),[]);
   updatedSets=parse(await store.get("usets_v1"),[]);
   userSpecies=parse(await store.get("usp_v1"),[]);
+  hunt=parse(await store.get("hunt_v1"),{});
+  hist=parse(await store.get("hist_v1"),[]);
   // Higienização: versões antigas do site gravaram no navegador cartas fora do
   // escopo atual (douradas, Full Art ex etc. vindas do Atualizar). Mantém apenas
   // IR/SIR e o que você adicionou de propósito pela biblioteca (u:1).
@@ -707,5 +782,6 @@ async function loadData(){
     }
   }
   buildWorking();updProgress();buildChips();render();
+  try{snapshotHist();}catch(_){}
 })();
 </script></body></html>
