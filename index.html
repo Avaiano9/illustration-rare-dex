@@ -221,7 +221,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={},PRICES=null;const UPDATED="30/06/2026";
+let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={},SCRYMAP={},PRICES=null;const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
 let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[],hunt={},hist=[];
@@ -271,6 +271,9 @@ const ownedCount=()=>Object.keys(owned).length;
 const norm=t=>(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 function altUrls(s,n,cur){
   const out=[];const num0=String(n||"");
+  const SC=(s&&SCRYMAP)?SCRYMAP[s]:null;
+  if(SC){const num=num0.replace(/^0+/,"")||num0;
+    out.push("https://images.scrydex.com/pokemon/"+SC+"-"+num+"/large");}
   const L=(s&&LIMMAP)?LIMMAP[s]:null;
   if(L){let num=/^\d+$/.test(num0)?num0.padStart(3,"0"):num0;
     out.push("https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/"+L+"/"+L+"_"+num+"_R_EN_SM.png");}
@@ -754,6 +757,7 @@ async function loadData(){
     try{const st=await fetch("./data/set_totals.json",{cache:"no-store"});if(st.ok)SET_TOTALS=await st.json();}catch(_){}
     try{const im=await fetch("./data/imgmap.json",{cache:"no-store"});if(im.ok)IMGMAP=await im.json();}catch(_){}
     try{const lm=await fetch("./data/limmap.json",{cache:"no-store"});if(lm.ok)LIMMAP=await lm.json();}catch(_){}
+    try{const sc=await fetch("./data/scrymap.json",{cache:"no-store"});if(sc.ok)SCRYMAP=await sc.json();}catch(_){}
     try{const pr=await fetch("./data/prices.json",{cache:"no-store"});if(pr.ok)PRICES=await pr.json();}catch(_){}
   }catch(e){
     grid.innerHTML=`<div class="empty">Não consegui carregar os dados (data/tracker.json). Se abriu o arquivo direto do disco, publique no GitHub Pages ou rode um servidor local.</div>`;
