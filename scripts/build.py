@@ -67,6 +67,77 @@ def dedup(c):
     return (str(c.get("set","")).lower().replace(" ","") + "|" +
             re.sub(r"[^A-Z0-9]", "", str(c.get("num","")).upper()))
 
+# Lista oficial embutida do MEP Black Star Promos (numero, nome da carta).
+# Rede de seguranca: se o Bulbapedia estiver fora do ar, o robo usa esta lista.
+# Nao-Pokemon (Estadios) sao ignorados automaticamente (nao resolvem Pokedex).
+MEP_FALLBACK = [
+ (1,"Meganium"),(2,"Inteleon"),(3,"Alakazam"),(4,"Lunatone"),(5,"Drifloon"),(6,"Drifblim"),
+ (7,"Psyduck"),(8,"Golduck"),(9,"Alakazam"),(10,"Riolu"),(11,"Mega Latias ex"),(12,"Mega Lucario ex"),
+ (13,"Mega Venusaur ex"),(14,"Ceruledge"),(15,"Zacian"),(16,"Flygon"),(17,"Toxtricity"),(18,"Cottonee"),
+ (19,"Whimsicott"),(20,"Sneasel"),(21,"Weavile"),(22,"Charcadet"),(23,"Mega Charizard X ex"),
+ (24,"Oricorio ex"),(25,"Mega Kangaskhan ex"),(26,"Meloetta"),(27,"Haunter"),(28,"Celebratory Fanfare"),
+ (29,"Mega Charizard X ex"),(30,"Mega Charizard Y ex"),(31,"N's Zekrom"),(32,"Mega Gardevoir ex"),
+ (33,"Mega Lucario ex"),(34,"Mega Meganium ex"),(35,"Mega Emboar ex"),(36,"Mega Feraligatr ex"),
+ (37,"Bulbasaur"),(38,"Charmander"),(39,"Squirtle"),(40,"Turtwig"),(41,"Chimchar"),(42,"Piplup"),
+ (43,"Rowlet"),(44,"Litten"),(45,"Popplio"),(46,"Chikorita"),(47,"Cyndaquil"),(48,"Totodile"),
+ (49,"Snivy"),(50,"Tepig"),(51,"Oshawott"),(52,"Grookey"),(53,"Scorbunny"),(54,"Sobble"),
+ (55,"Treecko"),(56,"Torchic"),(57,"Mudkip"),(58,"Chespin"),(59,"Fennekin"),(60,"Froakie"),
+ (61,"Sprigatito"),(62,"Fuecoco"),(63,"Quaxly"),(64,"Serperior"),(65,"Barbaracle"),(66,"Tyrantrum"),
+ (67,"Doublade"),(68,"Makuhita"),(69,"Chikorita"),(70,"Tyrunt"),(71,"Mega Zygarde ex"),
+ (72,"Mega Clefable ex"),(73,"Mega Gengar ex"),(74,"Delphox"),(75,"Ampharos"),(76,"Crobat"),
+ (77,"Goodra"),(78,"Toxel"),(79,"Charmeleon"),(80,"Fennekin"),(81,"Mega Greninja ex"),(82,"Miraidon"),
+ (83,"Slowbro"),(84,"Dhelmise"),(85,"Bastiodon"),(86,"Slowpoke"),(87,"Binacle"),(88,"Zarude"),
+ (89,"Mega Zeraora ex"),(90,"Mega Darkrai ex"),(91,"Mega Dragonite ex"),(92,"Paradise Resort"),
+ (93,"Pikachu"),(94,"Alolan Exeggutor"),(95,"Lucario"),(96,"Moltres"),(97,"Articuno"),(98,"Zapdos"),
+ (99,"Greninja ex"),(100,"Sylveon ex"),(101,"Nidorina"),(102,"Victini"),(103,"Zeraora"),(104,"Mewtwo"),
+ (105,"Mew"),(106,"Ditto"),(107,"Pikachu ex"),(108,"Espeon ex"),(109,"Pikachu ex"),(110,"Umbreon ex"),
+]
+MEP_WIKI = ("https://bulbapedia.bulbagarden.net/w/index.php"
+            "?title=MEP_Black_Star_Promos_(TCG)&action=raw")
+
+def fetch_mep_list():
+    """Tenta ler a lista do Bulbapedia (auto-atualizavel). Se falhar ou vier
+    pequena demais, usa a lista embutida. Sempre retorna [(num, nome), ...]."""
+    try:
+        req = urllib.request.Request(MEP_WIKI, headers={"User-Agent": "irdex-bot"})
+        txt = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+        out = []
+        for m in re.finditer(r"\{\{Setlist/entry\|(\d+)\|[^|]*\|\{\{TCG ID\|MEP Promo\|([^|}]+)", txt):
+            out.append((int(m.group(1)), m.group(2).strip()))
+        # so confia se cobrir pelo menos o que ja conhecemos
+        if len(out) >= len(MEP_FALLBACK):
+            print(f"  MEP: lista obtida do Bulbapedia ({len(out)} cartas)")
+            return out
+        print(f"  MEP: Bulbapedia veio curto ({len(out)}); usando lista embutida")
+    except Exception as e:
+        print(f"  MEP: Bulbapedia indisponivel ({e}); usando lista embutida")
+    return list(MEP_FALLBACK)
+
+def build_mep_promos(library, dexmap, have):
+    name2dex = {v[0].lower(): int(k) for k, v in dexmap.items()}
+    def mep_dex(nm):
+        n = nm.lower()
+        n = re.sub(r"^mega\s+", "", n)
+        n = re.sub(r"^(alolan|galarian|hisuian|paldean)\s+", "", n)
+        n = re.sub(r"^[a-z]+'s\s+", "", n)                # N's Zekrom -> zekrom
+        n = re.sub(r"\s+(ex|gx|v|vmax|vstar)$", "", n)
+        n = re.sub(r"\s+[xy]$", "", n)                    # Charizard X/Y
+        return name2dex.get(n.strip())
+    added = 0
+    for num, nm in fetch_mep_list():
+        dex = mep_dex(nm)
+        if dex is None:  # nao-Pokemon (Estadios) ou nome desconhecido: pula
+            continue
+        n3 = str(num).zfill(3)
+        card = {"name": nm, "set": "MEP Black Star Promos", "num": n3,
+                "img": ("https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/"
+                        f"tpci/MEP/MEP_{n3}_R_EN_SM.png"), "rarity": "Promo"}
+        if dedup(card) in have:
+            continue
+        have.add(dedup(card)); added += 1
+        library.setdefault(str(dex), []).append(dict(card))
+    return added
+
 def main():
     tracker  = load("tracker.json", [])
     library  = load("library.json", {})
@@ -103,20 +174,24 @@ def main():
             print(f"  aviso: falha ao ler {sid} ({e}); tentará na próxima vez")
             continue
         code = st.get("ptcgoCode") or ""
-        def mkimg(num):
-            # Limitless é a fonte mais rápida para sets novos; o site ainda tenta
-            # TCGdex e images.pokemontcg.io pela corrente de reserva se faltar.
+        def cardimg(c, num):
+            # 1) imagem oficial do proprio dataset (scrydex) - cobre sets novos
+            #    desde o lancamento. 2) Limitless por ptcgoCode. O site ainda tem
+            #    a corrente de reserva (Limitless/TCGdex/scrydex) se a principal falhar.
+            imgs = c.get("images") or {}
+            u = imgs.get("large") or imgs.get("small")
+            if u: return u
             if code and "-" not in code:
                 n = num.zfill(3) if num.isdigit() else num
                 return (f"https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/"
                         f"tpci/{code}/{code}_{n}_R_EN_SM.png")
-            return f"https://images.pokemontcg.io/{sid}/{num}.png"
+            return f"https://images.scrydex.com/pokemon/{sid}-{num}/large"
         for c in cards:
             if c.get("supertype") != "Pokémon": continue
             dexs = c.get("nationalPokedexNumbers") or []
             if not dexs: continue
             card = {"name": c["name"], "set": st["name"], "num": str(c.get("number","")),
-                    "img": mkimg(str(c.get("number",""))),
+                    "img": cardimg(c, str(c.get("number",""))),
                     "rarity": c.get("rarity")}
             if dedup(card) in have: continue
             r = c.get("rarity")
@@ -138,6 +213,12 @@ def main():
         if sid in {s["id"] for s in new_library}: libknown.add(sid)
         if st.get("printedTotal"): totals.setdefault(st["name"], st["printedTotal"])
         done_names.append(st["name"])
+
+    # ---------- 2.5) MEP Black Star Promos: lista curada (auto-suficiente) ----------
+    # O TCGdex vinha incompleto para o MEP (faltavam varias cartas do meio e as
+    # mais novas). Aqui o robo monta a colecao MEP a partir de uma lista oficial
+    # embutida (fonte da verdade), e ainda tenta atualizar sozinho pelo Bulbapedia.
+    add_mep = build_mep_promos(library, dexmap, have)
 
     # ---------- 3 e 4) TCGdex: promos + mapa de imagens ----------
     LIM_PROMO_CODES = {
@@ -250,6 +331,16 @@ def main():
             limmap[n] = cc
     save("limmap.json", limmap, sort_keys=True)
 
+    # ---------- 6) mapa scrydex (fonte oficial de imagens), nome do set -> id ----------
+    SCRY_OVERRIDES = {"MEP Black Star Promos": "mep"}
+    sid_by_name = {s["name"]: s["id"] for s in sets}
+    scrymap = {}
+    for n in sorted(x for x in used if x):
+        sc = SCRY_OVERRIDES.get(n) or sid_by_name.get(n)
+        if sc:
+            scrymap[n] = sc
+    save("scrymap.json", scrymap, sort_keys=True)
+
     # ---------- salvar ----------
     tracker = [by_dex[k] for k in sorted(by_dex)]
     rel = lambda c: (sinfo.get(c["set"], {}).get("releaseDate", "9999/99/99"), c["set"], c["num"])
@@ -262,6 +353,7 @@ def main():
 
     if done_names: print("Sets novos processados:", ", ".join(done_names))
     print(f"BASE: +{add_ir} IR/SIR (+{new_sp} Pokémon) -> {len(tracker)} espécies")
+    print(f"MEP (lista curada): +{add_mep} cartas")
     print(f"BIBLIOTECA: +{add_lib} quebra-moldura, +{add_promo} promos -> "
           f"{sum(len(v) for v in library.values())} entradas")
 
