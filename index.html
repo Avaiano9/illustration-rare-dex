@@ -164,6 +164,34 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .tgt .tp{font-family:var(--mono);font-size:11px;color:var(--gold);white-space:nowrap}
 .tgt .tn{font-weight:600}
 .tgt .td{font-family:var(--mono);font-size:10px;color:var(--ink3)}
+.genblk{border:1px solid var(--line);border-radius:11px;background:var(--panel);margin:6px 0;overflow:hidden}
+.genblk[open]{border-color:var(--gold-line)}
+.genblk summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:11px 13px;transition:.14s}
+.genblk summary::-webkit-details-marker{display:none}
+.genblk summary:hover{background:var(--panel2)}
+.genblk summary::after{content:"▾";margin-left:auto;color:var(--ink3);font-size:11px;transition:.2s}
+.genblk[open] summary::after{transform:rotate(180deg)}
+.genblk .gname{font-weight:700;font-size:14px;padding-left:9px;border-left:3px solid var(--c,var(--gold))}
+.genblk .gsum{font-family:var(--mono);font-size:10.5px;color:var(--ink3);letter-spacing:.02em}
+.genbody{padding:2px 11px 10px}
+.budgetbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 13px 12px}
+.budgetbox input[type=range]{width:100%;accent-color:var(--gold);cursor:pointer;margin:0 0 4px}
+.budgetlab{font-family:var(--mono);font-size:11px;color:var(--ink2);margin-bottom:8px}
+.budgetlab b{color:var(--gold);font-size:13px}
+.histbars{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.hbrow{display:flex;align-items:center;gap:10px}
+.hblab{font-family:var(--mono);font-size:10.5px;color:var(--ink2);width:112px;flex:none;text-align:right}
+.hbtrk{flex:1;height:16px;background:var(--line);border-radius:6px;overflow:hidden}
+.hbfill{height:100%;background:linear-gradient(90deg,#c99a2e,var(--gold));border-radius:6px;transition:width .4s ease;min-width:2px}
+.hbn{font-family:var(--mono);font-size:11px;color:var(--ink3);width:34px;flex:none}
+.setwrap{border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:hidden}
+.setwrap summary{list-style:none;cursor:pointer;padding:11px 13px;font-family:var(--mono);font-size:11px;color:var(--ink2);transition:.14s}
+.setwrap summary::-webkit-details-marker{display:none}
+.setwrap summary::after{content:"▾";float:right;color:var(--ink3);transition:.2s}
+.setwrap[open] summary::after{transform:rotate(180deg)}
+.setwrap summary:hover{background:var(--panel2);color:var(--ink)}
+.setlist{max-height:360px;overflow:auto;padding:2px 11px 10px}
+.setlist .rlab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px}
 .histbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:6px}
 .histleg{display:flex;gap:16px;font-family:var(--mono);font-size:10px;color:var(--ink3);margin-bottom:6px}
 .histleg i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
@@ -612,16 +640,31 @@ const priceOf=c=>{if(!PRICES||!PRICES.cards)return null;const v=PRICES.cards[pri
 const jpxOf=c=>{if(!PRICES||!PRICES.jpx)return null;const v=PRICES.jpx[priceKey(c)];return typeof v==="number"?v:null;};
 const fmtEur=v=>"€ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtMoney=v=>{const r=PRICES&&(PRICES.brl_rate||PRICES.eur_brl);return r?"R$ "+(v*r).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):(PRICES&&PRICES.currency==="USD"?"US$ ":"€ ")+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
+let budgetAsc=[];
+function tgtHtml(t){return `<div class="tgt" data-si="${t.i}"><span><span class="tn">${t.name}</span> <span class="td">${t.dex}</span></span><span class="tp">${fmtMoney(t.en)}${t.jp!=null&&t.jp<t.en?` · 🇯🇵 ${fmtMoney(t.jp)}`:""}</span></div>`;}
+function wireTgt(){document.querySelectorAll("#statsbody .tgt").forEach(el=>el.onclick=()=>{const s=DATA[+el.dataset.si];if(s){closeStats();openModal(s);}});}
+function renderBudget(){
+  const sl=document.getElementById("budgetSlider");if(!sl)return;
+  const val=+sl.value;const arr=budgetAsc.filter(t=>t.en<=val);
+  const sum=arr.reduce((a,t)=>a+t.en,0);
+  const vEl=document.getElementById("budgetVal");if(vEl)vEl.textContent=fmtMoney(val);
+  const iEl=document.getElementById("budgetInfo");if(iEl)iEl.textContent=`${arr.length} Pokémon · total ${fmtMoney(sum)}`;
+  const lEl=document.getElementById("budgetList");
+  if(lEl)lEl.innerHTML=arr.length?arr.slice(0,60).map(tgtHtml).join("")+(arr.length>60?`<div class="pnote" style="margin-top:6px">…e mais ${arr.length-60}. Baixe o teto para refinar.</div>`:""):`<div class="pnote">Nenhuma faltante com preço nesse teto — suba o valor.</div>`;
+  wireTgt();
+}
 function computeAgg(){
   const total=DATA.length,own=DATA.filter(isOwned).length,miss=total-own;
   const pct=total?Math.round(own/total*1000)/10:0;
   const regs={};DATA.forEach(s=>{(regs[s.region]=regs[s.region]||{t:0,o:0}).t++;if(isOwned(s))regs[s.region].o++;});
-  const A={total,own,miss,pct,regs,regCost:{},priced:false,vOwn:0,vMiss:0,vMix:0,
+  const A={total,own,miss,pct,regs,regCost:{},setStats:{},priced:false,vOwn:0,vMiss:0,vMix:0,
            nOwnPriced:0,nMissPriced:0,nMix:0,noPrice:0,missList:[],huntN:0,huntEn:0,huntMix:0,huntSemPreco:0};
   if(!PRICES||!PRICES.cards)return A;
   A.priced=true;const JP=PRICES.jp||{};
   DATA.forEach(s=>{
     const L=combined(s);
+    s.cards.forEach(c=>{if(!c.set)return;const st=A.setStats[c.set]||(A.setStats[c.set]={t:0,o:0,cost:0,np:0});
+      st.t++;if(isOwned(s)){st.o++;}else{const p=priceOf(c);if(p!=null)st.cost+=p;else st.np++;}});
     if(isOwned(s)){
       const sel=L[owned[s.species]]||L[0];let p=sel?priceOf(sel):null;
       if(p==null){const ps=L.map(priceOf).filter(x=>x!=null);p=ps.length?Math.min(...ps):null;}
@@ -634,7 +677,7 @@ function computeAgg(){
     const jp=jx.length?Math.min(...jx):(JP[s.dexn]!=null?JP[s.dexn]:(JP[String(s.dexn)]!=null?JP[String(s.dexn)]:null));
     const mix=(en!=null&&jp!=null)?Math.min(en,jp):(en!=null?en:jp);
     if(en!=null){A.vMiss+=en;A.nMissPriced++;A.regCost[s.region]=(A.regCost[s.region]||0)+en;
-      A.missList.push({i:s._i,name:s.species,dex:s.dex,en,jp});}
+      A.missList.push({i:s._i,name:s.species,dex:s.dex,region:s.region,en,jp});}
     else A.noPrice++;
     if(mix!=null){A.vMix+=mix;A.nMix++;}
     if(hunt[s.species]){A.huntN++;
@@ -677,7 +720,7 @@ function renderStats(){
   ORDER.forEach(r=>{const d=A.regs[r];if(!d)return;
     const p=d.t?Math.round(d.o/d.t*100):0;const rc=A.regCost[r];
     bars+=`<div class="rbarrow"><span class="rlab">${r}</span><div class="rtrk"><div class="rfill" style="--c:var(--r-${r});width:${p}%"></div></div><span class="rnum">${d.o}/${d.t} · ${p}%</span>${rc!=null?`<span class="rcost">${fmtMoney(rc)}</span>`:""}</div>`;});
-  let price="",alvos="",caca="";
+  let price="",alvos="",alvosGer="",budget="",faixas="",porSet="",caca="";
   if(A.priced){
     const temJp=Object.keys(PRICES.jp||{}).length>0;
     const rate=PRICES.brl_rate||PRICES.eur_brl;
@@ -691,7 +734,7 @@ function renderStats(){
     </div>`;
     const asc=[...A.missList].sort((a,b)=>a.en-b.en);
     const desc=[...A.missList].sort((a,b)=>b.en-a.en);
-    const item=t=>`<div class="tgt" data-si="${t.i}"><span><span class="tn">${t.name}</span> <span class="td">${t.dex}</span></span><span class="tp">${fmtMoney(t.en)}${t.jp!=null&&t.jp<t.en?` · 🇯🇵 ${fmtMoney(t.jp)}`:""}</span></div>`;
+    const item=tgtHtml;
     const dez=asc.slice(0,10),cinco=desc.slice(0,5);
     const somaDez=dez.reduce((a,t)=>a+t.en,0);
     alvos=`<div class="sech">Alvos de compra</div>
@@ -699,6 +742,61 @@ function renderStats(){
       ${dez.map(item).join("")}
       <div class="pnote" style="margin:12px 0 6px">As 5 mais caras — os seus troféus:</div>
       ${cinco.map(item).join("")}`;
+    // ---- Alvos por geração: 5 mais baratas + 5 mais caras que faltam em cada ----
+    const byReg={};A.missList.forEach(t=>{(byReg[t.region]=byReg[t.region]||[]).push(t);});
+    const blocos=ORDER.map(r=>{
+      const arr=byReg[r];if(!arr||!arr.length)return "";
+      const a=[...arr].sort((x,y)=>x.en-y.en);
+      const min=a[0].en,max=a[a.length-1].en,soma=a.reduce((s,t)=>s+t.en,0);
+      let corpo;
+      if(a.length<=6){corpo=`<div class="pnote" style="margin:6px 0 4px">o que ainda falta (${a.length}):</div>${a.map(item).join("")}`;}
+      else{const baratas=a.slice(0,5),caras=[...a].reverse().slice(0,5);
+        corpo=`<div class="pnote" style="margin:6px 0 4px">5 mais baratas:</div>${baratas.map(item).join("")}
+          <div class="pnote" style="margin:10px 0 4px">5 mais caras:</div>${caras.map(item).join("")}`;}
+      return `<details class="genblk"><summary><span class="gname" style="--c:var(--r-${r})">${r}</span>`
+        +`<span class="gsum">faltam ${arr.length} · ${fmtMoney(min)}–${fmtMoney(max)} · total ${fmtMoney(soma)}</span></summary>`
+        +`<div class="genbody">${corpo}</div></details>`;
+    }).join("");
+    const alvosGerBlocos=blocos?`<div class="sech">Alvos por geração</div>
+      <div class="pnote" style="margin:0 0 6px">Toque numa geração para ver as mais baratas e as mais caras que faltam ali.</div>${blocos}`:"";
+    alvosGer=alvosGerBlocos;
+    // ---- Comprar com orçamento: teto de preço deslizante ----
+    budgetAsc=asc;
+    if(asc.length){
+      const maxEn=Math.ceil(asc[asc.length-1].en);
+      const step=Math.max(1,Math.round(maxEn/200));
+      const defVal=Math.ceil(asc[Math.min(14,asc.length-1)].en);
+      budget=`<div class="sech">Comprar com orçamento</div>
+        <div class="budgetbox">
+          <input type="range" id="budgetSlider" min="0" max="${maxEn}" step="${step}" value="${defVal}">
+          <div class="budgetlab">até <b id="budgetVal"></b> — <span id="budgetInfo"></span></div>
+          <div id="budgetList"></div>
+        </div>`;
+    }
+    // ---- Faixas de preço das faltantes (histograma) ----
+    if(asc.length){
+      const rate=PRICES.brl_rate||PRICES.eur_brl;
+      const sym=rate?"R$ ":(PRICES.currency==="USD"?"US$ ":"€ ");
+      const edges=rate?[20,50,100,200]:[5,15,40,80];
+      const disp=t=>rate?t.en*rate:t.en;
+      const money=n=>sym+n.toLocaleString("pt-BR");
+      const labs=[`até ${money(edges[0])}`,`${money(edges[0])}–${money(edges[1])}`,`${money(edges[1])}–${money(edges[2])}`,`${money(edges[2])}–${money(edges[3])}`,`${money(edges[3])}+`];
+      const cnt=[0,0,0,0,0];
+      asc.forEach(t=>{const v=disp(t);let b=4;for(let i=0;i<edges.length;i++){if(v<=edges[i]){b=i;break;}}cnt[b]++;});
+      const mx=Math.max(...cnt,1);
+      faixas=`<div class="sech">Faixas de preço das faltantes</div>
+        <div class="histbars">`+labs.map((l,i)=>`<div class="hbrow"><span class="hblab">${l}</span><div class="hbtrk"><div class="hbfill" style="width:${Math.round(cnt[i]/mx*100)}%"></div></div><span class="hbn">${cnt[i]}</span></div>`).join("")+`</div>
+        <div class="pnote" style="margin-top:6px">Distribuição das ${asc.length} faltantes com preço — mostra onde está o grosso do custo.</div>`;
+    }
+    // ---- Por set: conclusão e custo por coleção ----
+    const setsArr=Object.entries(A.setStats).map(([name,st])=>({name,t:st.t,o:st.o,cost:st.cost,miss:st.t-st.o,pc:st.t?Math.round(st.o/st.t*100):0}));
+    if(setsArr.length){
+      const cand=setsArr.filter(s=>s.miss>0&&s.t>=5).sort((a,b)=>(a.miss-b.miss)||(a.cost-b.cost));
+      const near=cand[0];
+      const nearTxt=near?`<div class="pnote" style="margin:0 0 8px">🎯 Mais perto de fechar: <b>${near.name}</b> — faltam ${near.miss} de ${near.t}${near.cost?` por ${fmtMoney(near.cost)}`:""}.</div>`:"";
+      const rows=[...setsArr].sort((a,b)=>(b.pc-a.pc)||(a.miss-b.miss)).map(s=>`<div class="rbarrow"><span class="rlab" title="${s.name}">${s.name}</span><div class="rtrk"><div class="rfill" style="--c:var(--gold);width:${s.pc}%"></div></div><span class="rnum">${s.o}/${s.t} · ${s.pc}%</span>${s.cost?`<span class="rcost">${fmtMoney(s.cost)}</span>`:""}</div>`).join("");
+      porSet=`<div class="sech">Por set</div>${nearTxt}<details class="setwrap"><summary>Ver a conclusão dos ${setsArr.length} sets</summary><div class="setlist">${rows}</div></details>`;
+    }
     caca=`<div class="sech">Caçada 🎯</div><div class="pricebox">
       ${A.huntN?`<div class="prow"><span>Pokémon na caçada</span><b>${A.huntN}</b></div>
       <div class="prow"><span>Custo em inglês${A.huntSemPreco?` · ${A.huntSemPreco} sem preço`:""}</span><b>${fmtMoney(A.huntEn)}</b></div>
@@ -715,8 +813,9 @@ function renderStats(){
       <div class="bignum"><b>${A.pct}%</b><span>Completo</span></div>
     </div>
     <div class="sech">Evolução</div>${histSvg()}
-    <div class="sech">Por região</div>${bars}${price}${alvos}${caca}`;
-  document.querySelectorAll("#statsbody .tgt").forEach(el=>el.onclick=()=>{const s=DATA[+el.dataset.si];if(s){closeStats();openModal(s);}});
+    <div class="sech">Por região</div>${bars}${price}${alvos}${alvosGer}${budget}${faixas}${porSet}${caca}`;
+  wireTgt();
+  const bs=document.getElementById("budgetSlider");if(bs){bs.oninput=renderBudget;renderBudget();}
 }
 function openStats(){renderStats();ovStats.classList.add("on");document.body.style.overflow="hidden";}
 function closeStats(){ovStats.classList.remove("on");document.body.style.overflow="";}
