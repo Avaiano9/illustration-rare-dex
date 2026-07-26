@@ -30,6 +30,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .tbtn:hover{color:var(--ink);border-color:var(--gold-line)}
 .tbtn:disabled{opacity:.55;cursor:default}
 .tbtn.upd{color:#1a1608;background:var(--gold);border-color:var(--gold);font-weight:700}
+.tbtn.synced{color:#8fe0b0;border-color:#2f7d55}
 .tbtn.upd:hover{filter:brightness(1.05);color:#1a1608}
 .tbtn.upd.spin{background:var(--panel);color:var(--ink2);font-weight:400}
 .tbtn.add{color:var(--gold);border-color:var(--gold-line);background:var(--panel)}
@@ -211,6 +212,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
     <button class="tbtn upd" id="btnUpd" title="Buscar sets recém-lançados agora (o site também atualiza sozinho toda semana)">Atualizar agora</button>
     <button class="tbtn add" id="btnAddSp" title="Adicionar uma carta da biblioteca (Full Arts, Alt Arts, Gold Stars…) ou criar um quadrinho novo">＋ Carta</button>
     <button class="tbtn" id="btnStats" title="Estatísticas da coleção: contagens, regiões e estimativas de preço">📊 Estatísticas</button>
+    <button class="tbtn" id="btnSync" title="Entrar para sincronizar sua coleção entre computador e celular">☁️ Entrar</button>
     <div class="more">
       <button class="tbtn" id="btnMore" aria-haspopup="true">Mais ▾</button>
       <div class="menu" id="moreMenu">
@@ -248,6 +250,9 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
   <div class="statsbody" id="statsbody"></div>
 </div></div>
 <div class="toast" id="toast"></div>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={},SCRYMAP={},PRICES=null;const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
@@ -260,8 +265,10 @@ const CBACK=`<div class="cback" title="Carta de arte rara (marcador)"><svg viewB
 const store={
   async get(k){ try{ if(window.storage&&window.storage.get) return await window.storage.get(k); }catch(e){}
     try{ const v=localStorage.getItem(k); return v==null?null:{value:v}; }catch(e){ return null; } },
-  async set(k,v){ try{ if(window.storage&&window.storage.set){ await window.storage.set(k,v); return; } }catch(e){}
-    try{ localStorage.setItem(k,v); }catch(e){} }
+  async set(k,v){ let ok=false;
+    try{ if(window.storage&&window.storage.set){ await window.storage.set(k,v); ok=true; } }catch(e){}
+    if(!ok){ try{ localStorage.setItem(k,v); }catch(e){} }
+    if(/_v1$/.test(k)&&window.__cloudTouch)window.__cloudTouch(); }
 };
 const parse=(r,d)=>{ try{ return JSON.parse((r&&r.value)||"")||d; }catch(e){ return d; } };
 let sT;function save(){clearTimeout(sT);sT=setTimeout(async()=>{
@@ -863,6 +870,114 @@ async function loadData(){
     throw e;
   }
 }
+/* ================= SINCRONIA (Firebase) ================= */
+const FB_CONFIG={
+  apiKey:"AIzaSyAhEDgR_M-_M0iEkSi5UYmkajt-pmKkZwM",
+  authDomain:"ilustration-dex.firebaseapp.com",
+  projectId:"ilustration-dex",
+  storageBucket:"ilustration-dex.firebasestorage.app",
+  messagingSenderId:"708127299311",
+  appId:"1:708127299311:web:6c41e6534f16c7e33ead1a"
+};
+let fbAuth=null,fbDb=null,fbUser=null,fbDoc=null,fbUnsub=null;
+let cloudReady=false,applyingRemote=false,pushT=null,lastPushJson="";
+const CLIENT_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
+function syncState(){return {v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist};}
+function uniqBy(arr,keyf){const seen=new Set(),out=[];(arr||[]).forEach(x=>{const k=keyf(x);if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
+function mergeStates(a,b){
+  a=a||{};b=b||{};
+  const owned={...(a.owned||{}),...(b.owned||{})};
+  const hunt={...(a.hunt||{}),...(b.hunt||{})};
+  const custom={...(a.custom||{}),...(b.custom||{})};
+  const extra=uniqBy([...(a.extra||[]),...(b.extra||[])],e=>e.dexn+"|"+dedup((e&&e.card)||{}));
+  const updatedSets=[...new Set([...(a.updatedSets||[]),...(b.updatedSets||[])])];
+  const userSpecies=uniqBy([...(a.userSpecies||[]),...(b.userSpecies||[])],u=>u.dexn);
+  const histMap={};[...(a.hist||[]),...(b.hist||[])].forEach(e=>{if(e&&e.d)histMap[e.d]=e;});
+  const hist=Object.values(histMap).sort((x,y)=>x.d<y.d?-1:1);
+  return {v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist};
+}
+async function applyState(j){
+  applyingRemote=true;
+  try{
+    owned=j.owned||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];
+    userSpecies=j.userSpecies||[];hunt=j.hunt||{};hist=j.hist||[];
+    await store.set("owned_v1",JSON.stringify(owned));
+    await store.set("custom_v1",JSON.stringify(custom));
+    await store.set("extra_v1",JSON.stringify(extra));
+    await store.set("usets_v1",JSON.stringify(updatedSets));
+    await store.set("usp_v1",JSON.stringify(userSpecies));
+    await store.set("hunt_v1",JSON.stringify(hunt));
+    await store.set("hist_v1",JSON.stringify(hist));
+    buildWorking();updProgress();buildChips();render();
+  }finally{applyingRemote=false;}
+}
+window.__cloudTouch=function(){
+  if(!cloudReady||applyingRemote||!fbDoc)return;
+  clearTimeout(pushT);pushT=setTimeout(cloudPush,1200);
+};
+async function cloudPush(){
+  if(!fbDoc)return;
+  const j=JSON.stringify(syncState());lastPushJson=j;
+  try{await fbDoc.set({stateJson:j,ts:Date.now(),client:CLIENT_ID});setSyncBadge("in");}
+  catch(e){console.log("push err",e);setSyncBadge("err");}
+}
+function setSyncBadge(kind){
+  const b=document.getElementById("btnSync");if(!b)return;
+  const nome=(fbUser&&fbUser.displayName)?fbUser.displayName.split(" ")[0]:"conectado";
+  if(kind==="in"){b.textContent="☁️ "+nome;b.classList.add("synced");}
+  else if(kind==="out"){b.textContent="☁️ Entrar";b.classList.remove("synced");}
+  else if(kind==="sync"){b.textContent="☁️ sincronizando…";}
+  else if(kind==="err"){b.textContent="☁️ erro ao salvar";}
+}
+async function applyIncoming(stateObj){
+  const merged=mergeStates(syncState(),stateObj);
+  await applyState(merged);
+  lastPushJson=JSON.stringify(syncState());
+}
+async function onLogin(user){
+  fbUser=user;fbDoc=fbDb.collection("users").doc(user.uid);
+  setSyncBadge("sync");
+  let remote=null;
+  try{const snap=await fbDoc.get();if(snap.exists){const d=snap.data();if(d&&d.stateJson)remote=JSON.parse(d.stateJson);}}catch(e){console.log("get err",e);}
+  await applyState(remote?mergeStates(syncState(),remote):syncState());
+  cloudReady=true;
+  await cloudPush();
+  setSyncBadge("in");toast("Sincronizado ✓");
+  if(fbUnsub)fbUnsub();
+  fbUnsub=fbDoc.onSnapshot(snap=>{
+    if(!snap.exists)return;const d=snap.data();if(!d||!d.stateJson)return;
+    if(d.client===CLIENT_ID)return;
+    if(d.stateJson===lastPushJson)return;
+    let inc=null;try{inc=JSON.parse(d.stateJson);}catch(e){return;}
+    applyIncoming(inc).then(()=>toast("Atualizado de outro aparelho"));
+  },err=>console.log("snap err",err));
+}
+function onLogout(){
+  fbUser=null;fbDoc=null;cloudReady=false;if(fbUnsub){fbUnsub();fbUnsub=null;}
+  setSyncBadge("out");
+}
+function doLogin(){
+  if(!fbAuth)return;
+  const prov=new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(prov).catch(err=>{
+    const c=err&&err.code;
+    if(c==="auth/popup-blocked"||c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request"||c==="auth/operation-not-supported-in-this-environment"){
+      fbAuth.signInWithRedirect(prov).catch(e=>toast("Não deu pra entrar: "+((e&&e.message)||(e&&e.code)||e)));
+    }else{toast("Não deu pra entrar: "+((err&&err.message)||c||err));}
+  });
+}
+function initSync(){
+  if(!window.firebase||!firebase.initializeApp){console.log("Firebase indisponível — modo offline");return;}
+  try{firebase.initializeApp(FB_CONFIG);}catch(e){console.log("init err",e);return;}
+  fbAuth=firebase.auth();fbDb=firebase.firestore();
+  const btn=document.getElementById("btnSync");
+  if(btn)btn.onclick=()=>{
+    if(fbUser){if(confirm("Sair da sincronia neste aparelho? Seus dados continuam salvos na conta e neste navegador."))fbAuth.signOut();}
+    else doLogin();
+  };
+  fbAuth.getRedirectResult().catch(()=>{});
+  fbAuth.onAuthStateChanged(u=>{if(u)onLogin(u);else onLogout();});
+}
 (async()=>{
   await loadData();
   owned=parse(await store.get("owned_v1"),{});
@@ -886,5 +1001,6 @@ async function loadData(){
   }
   buildWorking();updProgress();buildChips();render();
   try{snapshotHist();}catch(_){}
+  try{initSync();}catch(e){console.log("sync off:",e);}
 })();
 </script></body></html>
