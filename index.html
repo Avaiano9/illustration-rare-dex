@@ -203,6 +203,35 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 @media (max-width:560px){.grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:11px}.title{font-size:20px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.card.fresh{animation:none}}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.modal.binder{max-width:760px;width:100%}
+.binderbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 12px;flex-wrap:wrap}
+.bindersel{background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:10px;padding:8px 12px;font-family:var(--mono);font-size:13px;cursor:pointer}
+.bindernav{display:flex;align-items:center;gap:6px}
+.bnav{background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:10px;width:38px;height:36px;font-size:14px;cursor:pointer;transition:.14s}
+.bnav:hover{border-color:var(--gold);color:var(--gold)}
+.bnav:disabled{opacity:.35;cursor:default;border-color:var(--line)}
+.bpage{font-family:var(--mono);font-size:12px;color:var(--ink2);min-width:96px;text-align:center}
+.binderscroll{overflow:auto}
+.binderpage{position:relative;background:linear-gradient(160deg,#141414,#0a0a0b);border:1px solid #24262c;border-radius:14px;padding:16px 16px 16px 40px;box-shadow:inset 0 0 40px #0008}
+.brings{position:absolute;left:14px;top:18px;bottom:18px;width:14px;display:flex;flex-direction:column;justify-content:space-around;align-items:center}
+.brings::before{content:"";position:absolute;top:0;bottom:0;width:2px;background:#000;left:50%;transform:translateX(-50%)}
+.brings i,.brings::after{content:"";display:block}
+.bgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.pocket{position:relative;aspect-ratio:63/88;border-radius:7px;border:1px solid #34383f;background:#0f1116;overflow:hidden;box-shadow:inset 0 0 0 1px #ffffff0a, inset 0 14px 22px #ffffff06, 0 2px 5px #0007;cursor:pointer;transition:transform .12s,border-color .12s}
+.pocket:hover{transform:translateY(-2px);border-color:#4a4f59}
+.pocket::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,#ffffff14 0%,#ffffff00 32%);pointer-events:none}
+.pocket img{width:100%;height:100%;object-fit:cover;display:block}
+.pocket.art{background:radial-gradient(circle at 50% 38%,#1b1f27,#0b0d11)}
+.pocket.art img{object-fit:contain;padding:9%}
+.pocket.missing img{filter:grayscale(1) brightness(.58) contrast(.9);opacity:.6}
+.pocket.missing:hover img{filter:grayscale(.2) brightness(.85);opacity:.85}
+.pocket .cback{width:100%;height:100%;display:grid;place-items:center;background:#0f1116}
+.pocket .cback svg{width:46%;height:46%}
+.pocket.missing .cback{filter:brightness(.6) saturate(.7)}
+.pocket.empty{cursor:default;background:repeating-linear-gradient(45deg,#0d0f13,#0d0f13 6px,#0f1218 6px,#0f1218 12px);border-style:dashed;border-color:#22252c}
+.pocket.empty::after{display:none}
+.pnum{position:absolute;left:4px;bottom:3px;font-family:var(--mono);font-size:8.5px;color:#ffffffaa;background:#000000073;padding:1px 4px;border-radius:5px;z-index:2;pointer-events:none}
+@media(max-width:520px){.binderpage{padding:11px 11px 11px 32px}.bgrid{gap:7px}.brings{left:10px}}
 </style></head><body>
 <header><div class="hd">
   <div class="brand"><span class="eyebrow">Alt Art · IR · SIR</span><span class="title">Illustration Rare <b>Dex</b></span></div>
@@ -213,6 +242,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
     <button class="tbtn add" id="btnAddSp" title="Adicionar uma carta da biblioteca (Full Arts, Alt Arts, Gold Stars…) ou criar um quadrinho novo">＋ Carta</button>
     <button class="tbtn" id="btnStats" title="Estatísticas da coleção: contagens, regiões e estimativas de preço">📊 Estatísticas</button>
     <button class="tbtn" id="btnSync" title="Entrar para sincronizar sua coleção entre computador e celular">☁️ Entrar</button>
+    <button class="tbtn" id="btnBinder" title="Ver sua coleção como um fichário (binder) por região">📔 Binder</button>
     <div class="more">
       <button class="tbtn" id="btnMore" aria-haspopup="true">Mais ▾</button>
       <div class="menu" id="moreMenu">
@@ -248,6 +278,17 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
     <div class="dexn">Coleção</div><h2>Estatísticas</h2>
   </div><button class="close" id="statsClose" aria-label="Fechar">✕</button></div></div>
   <div class="statsbody" id="statsbody"></div>
+</div></div>
+<div class="ov" id="ovBinder"><div class="modal binder">
+  <div class="mhd"><div class="rowx"><div>
+    <div class="dexn">Fichário</div><h2>Binder</h2>
+  </div><button class="close" id="binderClose" aria-label="Fechar">✕</button></div></div>
+  <div class="binderbar">
+    <select id="binderRegion" class="bindersel"></select>
+    <div class="bindernav"><button id="bPrev" class="bnav" aria-label="Página anterior">◀</button><span id="bPage" class="bpage"></span><button id="bNext" class="bnav" aria-label="Próxima página">▶</button></div>
+  </div>
+  <div class="binderscroll"><div class="binderpage" id="binderPage"><div class="brings"></div><div class="bgrid" id="bgrid"></div></div></div>
+  <div class="pnote" id="binderInfo" style="text-align:center;margin-top:8px"></div>
 </div></div>
 <div class="toast" id="toast"></div>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
@@ -830,6 +871,55 @@ document.getElementById("btnStats").onclick=openStats;
 document.getElementById("statsClose").onclick=closeStats;
 ovStats.addEventListener("click",e=>{if(e.target===ovStats)closeStats();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ovStats.classList.contains("on"))closeStats();});
+
+/* ================= BINDER (fichário) ================= */
+const REGION_RANGES={Kanto:[1,151],Johto:[152,251],Hoenn:[252,386],Sinnoh:[387,493],Unova:[494,649],Kalos:[650,721],Alola:[722,809],Galar:[810,905],Paldea:[906,1025]};
+const BINDER_PP=12;
+const SPRITE=n=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${n}.png`;
+let binderRegion="Kanto",binderPage=0;
+const ovBinder=document.getElementById("ovBinder");
+function binderDexMap(){const m=new Map();DATA.forEach(s=>{if(!m.has(s.dexn))m.set(s.dexn,s);});return m;}
+function pocketHtml(n,byd){
+  const num=`<span class="pnum">#${String(n).padStart(3,"0")}</span>`;
+  const sp=byd.get(n);
+  if(!sp){
+    return `<div class="pocket art" title="#${n} — sem carta ainda"><img loading="lazy" decoding="async" src="${SPRITE(n)}" alt="#${n}" onerror="this.remove()">${num}</div>`;
+  }
+  const own=isOwned(sp),rc=repCard(sp);
+  const cls=own?"pocket owned":"pocket missing";
+  const inner=rc.placeholder?CBACK:(rc.img?`<img loading="lazy" decoding="async" src="${rc.img}" alt="${sp.species}" data-fs="${rc.set||''}" data-fn="${rc.num||''}" onerror="imgFail(this)">`:CBACK);
+  return `<div class="${cls}" data-si="${sp._i}" title="${sp.species}">${inner}${num}</div>`;
+}
+function renderBinder(){
+  const sel=document.getElementById("binderRegion");
+  if(!sel.options.length)sel.innerHTML=Object.keys(REGION_RANGES).map(r=>`<option value="${r}">${r}</option>`).join("");
+  sel.value=binderRegion;
+  const rng=REGION_RANGES[binderRegion],lo=rng[0],hi=rng[1];
+  const pages=Math.ceil((hi-lo+1)/BINDER_PP);
+  if(binderPage>=pages)binderPage=0;
+  const byd=binderDexMap();
+  const start=lo+binderPage*BINDER_PP,end=Math.min(start+BINDER_PP-1,hi);
+  let html="";
+  for(let n=start;n<=end;n++)html+=pocketHtml(n,byd);
+  for(let k=end-start+1;k<BINDER_PP;k++)html+=`<div class="pocket empty"></div>`;
+  document.getElementById("bgrid").innerHTML=html;
+  document.getElementById("bPage").textContent=`Página ${binderPage+1} / ${pages}`;
+  document.getElementById("bPrev").disabled=binderPage<=0;
+  document.getElementById("bNext").disabled=binderPage>=pages-1;
+  let have=0,tot=0;
+  for(let n=lo;n<=hi;n++){const sp=byd.get(n);if(sp){tot++;if(isOwned(sp))have++;}}
+  document.getElementById("binderInfo").textContent=`${binderRegion}: #${String(lo).padStart(3,"0")}–#${String(hi).padStart(3,"0")} · você tem ${have} de ${tot} com carta especial`;
+  document.querySelectorAll("#bgrid .pocket[data-si]").forEach(el=>el.onclick=()=>{const s=DATA[+el.dataset.si];if(s){closeBinder();openModal(s);}});
+}
+function openBinder(){binderPage=0;renderBinder();ovBinder.classList.add("on");document.body.style.overflow="hidden";}
+function closeBinder(){ovBinder.classList.remove("on");document.body.style.overflow="";}
+document.getElementById("btnBinder").onclick=openBinder;
+document.getElementById("binderClose").onclick=closeBinder;
+document.getElementById("binderRegion").onchange=e=>{binderRegion=e.target.value;binderPage=0;renderBinder();};
+document.getElementById("bPrev").onclick=()=>{if(binderPage>0){binderPage--;renderBinder();}};
+document.getElementById("bNext").onclick=()=>{binderPage++;renderBinder();};
+ovBinder.addEventListener("click",e=>{if(e.target===ovBinder)closeBinder();});
+document.addEventListener("keydown",e=>{if(!ovBinder.classList.contains("on"))return;if(e.key==="Escape")closeBinder();else if(e.key==="ArrowLeft")document.getElementById("bPrev").click();else if(e.key==="ArrowRight")document.getElementById("bNext").click();});
 
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));filterStatus=b.dataset.st;render();});
 let qT;document.getElementById("q").addEventListener("input",e=>{query=e.target.value;clearTimeout(qT);qT=setTimeout(render,120);});
