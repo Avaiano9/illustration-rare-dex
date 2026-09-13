@@ -3,11 +3,11 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Illustration Rare Dex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0d0f14;--bg2:#12151c;--panel:#161a23;--panel2:#1c212c;--line:#252b38;--line2:#2e3646;
---ink:#eef1f6;--ink2:#aab3c4;--ink3:#6b7488;--gold:#e7b84b;--gold-soft:#e7b84b33;--gold-line:#e7b84b66;
---mono:"Space Mono",ui-monospace,monospace;--disp:"Space Grotesk",system-ui,sans-serif;
+:root{--bg:#f0e9d7;--bg2:#f8f3e6;--panel:#fbf7ec;--panel2:#f0e7d2;--line:#dacdad;--line2:#cbbc95;
+--ink:#2b2419;--ink2:#695e49;--ink3:#98896c;--gold:#a9772b;--gold-soft:#a9772b26;--gold-line:#a9772b59;
+--mono:"Space Mono",ui-monospace,monospace;--disp:"Inter",system-ui,sans-serif;--title:"Fraunces",Georgia,serif;
 --r-Kanto:#e05a5a;--r-Johto:#e0b24a;--r-Hoenn:#46b381;--r-Sinnoh:#5b8ce0;--r-Unova:#8a93a6;
 --r-Kalos:#b06fd6;--r-Alola:#e89246;--r-Galar:#d05f92;--r-Paldea:#cf6238;--r-\u2014:#6b7488;}
 *{box-sizing:border-box}html,body{margin:0}
@@ -232,6 +232,42 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,rgba(1
 .pocket.empty::after{display:none}
 .pnum{position:absolute;left:4px;bottom:3px;font-family:var(--mono);font-size:8.5px;color:#ffffffaa;background:#000000073;padding:1px 4px;border-radius:5px;z-index:2;pointer-events:none}
 @media(max-width:520px){.binderpage{padding:11px 11px 11px 32px}.bgrid{gap:7px}.brings{left:10px}}
+/* ================= TEMA "CADERNO DE CAMPO" (papel) ================= */
+body{background:radial-gradient(120% 70% at 50% -5%,#f8f2e4,transparent 60%),var(--bg)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;background-image:radial-gradient(#00000009 1px,transparent 1px);background-size:5px 5px}
+.title,.mhd h2,.prog .num{font-family:var(--title);font-weight:600}
+.eyebrow{color:var(--gold)}
+header{background:linear-gradient(180deg,rgba(246,240,228,.97),rgba(246,240,228,.82));border-bottom:2px solid var(--ink)}
+.name{font-family:var(--title);font-style:italic;font-weight:500;letter-spacing:0;color:var(--ink)}
+.bignum b,.mhd h2{font-family:var(--title)}
+.lib-meta b,.cc .cset,.aspitem,.tgt .tn{font-family:var(--title);font-weight:600}
+/* cartas como espécimes de herbário */
+.card{background:var(--panel);border:1px solid var(--line2);border-radius:8px;box-shadow:0 2px 4px #0000000d,0 12px 22px -16px #0000004d}
+.card:hover{transform:translateY(-4px) rotate(-.5deg);box-shadow:0 3px 7px #00000012,0 18px 30px -18px #00000055}
+.card.owned{border-color:var(--gold-line);box-shadow:0 0 0 1px var(--gold-line),0 10px 24px -16px #a9772b66}
+.imgbox,.cc .ib,.lib-ib,.libcard.marker .lib-ib{background:#efe7d4}
+.cback,.pocket .cback{background:radial-gradient(circle at 50% 34%,#e8ddc1,#d6c69f)}
+.card.miss .imgbox img,.pocket.missing img{filter:grayscale(1) sepia(.28) brightness(1.03) contrast(.85);opacity:.42}
+.card.miss:hover .imgbox img{filter:grayscale(.3) sepia(.14) brightness(1);opacity:.74}
+.card.miss .name{color:var(--ink3)}
+.card.miss .cback,.pocket.missing .cback{filter:sepia(.3) brightness(.98) saturate(.8)}
+/* selos/chips sobre a carta -> claros */
+.chk{background:#fbf7ecdd;border-color:var(--line2)}
+.chk svg{stroke:var(--ink3)}
+.multi,.cbadge,.cc .del{background:#fbf7ecdd;border-color:var(--line2);color:var(--ink2)}
+/* modais: scrim quente + moldura */
+.ov{background:#2b241966;backdrop-filter:blur(5px)}
+.modal{box-shadow:0 30px 80px -24px #2b241988}
+.toast{background:var(--panel);border-color:var(--gold-line);color:var(--ink);box-shadow:0 10px 30px -12px #2b241966}
+/* ===== binder vira álbum de papel ===== */
+.binderpage{background:linear-gradient(160deg,#efe6d0,#e5dabe);border:1px solid var(--line2);box-shadow:inset 0 0 40px #00000010,0 2px 8px #0000001a}
+.brings::before{background:linear-gradient(90deg,#8a6a2e,#c9a24b 50%,#8a6a2e)}
+.pocket{border:1px solid var(--line2);background:#fbf7ec;box-shadow:inset 0 0 0 1px #ffffffcc,inset 0 -8px 14px #00000010,0 2px 4px #0000001a}
+.pocket::after{background:linear-gradient(135deg,#ffffff8c 0%,#ffffff00 30%)}
+.pocket:hover{border-color:var(--gold-line)}
+.pocket.art{background:radial-gradient(circle at 50% 38%,#f3ecd9,#e6dcc2)}
+.pocket.empty{background:repeating-linear-gradient(45deg,#efe6d0,#efe6d0 6px,#e8ddc4 6px,#e8ddc4 12px);border-color:var(--line)}
+.pnum{color:#4a4026;background:#ffffffb3}
 </style></head><body>
 <header><div class="hd">
   <div class="brand"><span class="eyebrow">Alt Art · IR · SIR</span><span class="title">Illustration Rare <b>Dex</b></span></div>
