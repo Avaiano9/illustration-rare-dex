@@ -285,6 +285,7 @@ header{background:linear-gradient(180deg,rgba(246,240,228,.97),rgba(246,240,228,
         <button class="tbtn" id="btnTxt" title="Lista das faltantes no formato de consulta por lista">Faltantes .txt</button>
         <button class="tbtn" id="btnExport">Exportar</button>
         <button class="tbtn" id="btnImport">Importar</button>
+        <button class="tbtn" id="btnRestore" title="Trazer de volta cartas e Pokémon que você removeu">Restaurar removidos</button>
         <button class="tbtn" id="btnReset">Zerar</button>
       </div>
     </div>
@@ -334,7 +335,7 @@ header{background:linear-gradient(180deg,rgba(246,240,228,.97),rgba(246,240,228,
 let BASE=[],DEXMAP={},KNOWN_SETS=[],SET_TOTALS={},IMGMAP={},LIMMAP={},SCRYMAP={},PRICES=null;const UPDATED="30/06/2026";
 const RAW="https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/";
 const REGIONS=["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
-let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[],hunt={},hist=[];
+let DATA=[],TOTAL=0,owned={},custom={},extra=[],updatedSets=[],userSpecies=[],hunt={},hist=[],hidden={},hiddenSp={};
 let filterRegion=null,filterStatus="all",query="",freshDex=new Set();
 const CBACK=`<div class="cback" title="Carta de arte rara (marcador)"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="#e9edff" stroke="#0f1526" stroke-width="4"/><path d="M50 10a40 40 0 0 1 40 40H10a40 40 0 0 1 40-40z" fill="#c6d2ff"/><path d="M10 50h80" stroke="#0f1526" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="#fff" stroke="#0f1526" stroke-width="5"/></svg></div>`;
 
@@ -370,7 +371,11 @@ function buildWorking(){
     map.set(u.dexn,{species:u.species,dex:u.dex||("#"+String(u.dexn).padStart(4,"0")),region:u.region,dexn:u.dexn,
       cards:[{name:u.species,set:"",num:"",img:"",rarity:"",placeholder:true}]});
   });
-  DATA=[...map.values()].sort((a,b)=>a.dexn-b.dexn);
+  for(const sp of map.values()){
+    if(sp.cards.length>1||!sp.cards[0]||!sp.cards[0].placeholder)
+      sp.cards=sp.cards.filter(c=>!hidden[sp.dexn+"|"+dedup(c)]);
+  }
+  DATA=[...map.values()].filter(sp=>!hiddenSp[sp.dexn]&&sp.cards.length).sort((a,b)=>a.dexn-b.dexn);
   DATA.forEach((s,i)=>s._i=i);
   TOTAL=DATA.length; totN.textContent=TOTAL;
 }
@@ -467,12 +472,13 @@ function renderModal(s){
       <div class="cc ${own&&owned[s.species]===i?"have":""} ${isc||c.u?"custom":""}">
         ${isc?`<button class="del" data-del="${i-baseN}" title="Remover">✕</button><span class="cbadge">MINHA</span>`:""}
         ${!isc&&c.u?`<button class="del" data-delu="${i}" title="Remover (adicionada da biblioteca)">✕</button><span class="cbadge">MINHA</span>`:""}
+        ${!isc&&!c.u&&!ph?`<button class="del" data-hide="${i}" title="Remover esta carta">✕</button>`:""}
         <div class="ib">${ph?CBACK:(c.img?`<img loading="lazy" src="${c.img}" alt="${c.name}" data-fs="${c.set||''}" data-fn="${c.num||''}" onerror="imgFail(this)">`:`<div class="noimg">sem imagem</div>`)}</div>
         <div class="cm"><div class="cset">${ph?"Marcador":c.set}</div><div class="cnum">${ph?"Carta de arte rara":c.name+(c.num?" · nº "+c.num:"")}</div>
         ${c.rarity?`<span class="crar">${c.rarity}</span>`:""}${(pv=>pv!=null?`<span class="cprice">${fmtMoney(pv)}</span>`:"")(priceOf(c))}${(jv=>jv!=null?`<span class="cprice">🇯🇵 mesma arte ${fmtMoney(jv)}</span>`:"")(jpxOf(c))}
         <button class="mk" data-card="${i}">${own&&owned[s.species]===i?"✓ Tenho esta":"Marcar como minha"}</button></div>
       </div>`;}).join("")}</div>
-    ${uadded?`<div class="rmrow"><button class="rmsp" data-rmsp>Remover este Pokémon da lista</button></div>`:""}
+    <div class="rmrow"><button class="rmsp" data-rmsp>${uadded?"Remover este Pokémon da lista":"Remover este Pokémon do total"}</button></div>
     <div class="addbox">
       <h4>Tem outra carta que não está na lista?</h4>
       <p>Ex.: um promo antigo ou uma versão japonesa. Informe a edição e o nº — e, se quiser, uma imagem: cole a URL (do TCG Codex, por exemplo) ou anexe uma foto do seu computador.</p>
@@ -493,8 +499,9 @@ function renderModal(s){
   modal.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>setCard(s,+b.dataset.card));
   modal.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delCustom(s,+b.dataset.del));
   modal.querySelectorAll("[data-delu]").forEach(b=>b.onclick=()=>delLibCard(s,+b.dataset.delu));
+  modal.querySelectorAll("[data-hide]").forEach(b=>b.onclick=()=>hideCard(s,+b.dataset.hide));
   modal.querySelector("[data-add]").onclick=()=>addCustom(s);
-  const rm=modal.querySelector("[data-rmsp]");if(rm)rm.onclick=()=>removeUserSpecies(s);
+  const rm=modal.querySelector("[data-rmsp]");if(rm)rm.onclick=()=>uadded?removeUserSpecies(s):hideSpecies(s);
   const hb=modal.querySelector("[data-hunt]");if(hb)hb.onclick=async()=>{if(hunt[s.species])delete hunt[s.species];else hunt[s.species]=1;await saveHunt();renderModal(s);const t=grid.querySelector(`.card[data-i="${s._i}"]`);if(t)t.replaceWith(tile(s));};
 }
 async function delLibCard(s,i){
@@ -513,6 +520,30 @@ async function removeUserSpecies(s){
   delete owned[s.species];delete custom[s.species];
   await saveUsp();save();closeModal();
   buildWorking();updProgress();buildChips();render();toast("Removido da lista: "+s.species);
+}
+async function saveHidden(){await store.set("hidden_v1",JSON.stringify(hidden));await store.set("hiddensp_v1",JSON.stringify(hiddenSp));}
+async function hideCard(s,i){
+  const card=combined(s)[i];if(!card)return;
+  hidden[s.dexn+"|"+dedup(card)]=1;
+  if(owned[s.species]===i)delete owned[s.species];else if(owned[s.species]>i)owned[s.species]--;
+  await saveHidden();save();
+  buildWorking();updProgress();buildChips();render();
+  const nsp=DATA.find(x=>x.dexn===s.dexn);
+  nsp?renderModal(DATA[nsp._i]):closeModal();
+  toast("Carta removida: "+(card.name||card.set||"—"));
+}
+async function hideSpecies(s){
+  if(!confirm("Remover "+s.species+" do total? Ele some da sua lista. Dá pra desfazer em “Mais ▾ › Restaurar removidos”."))return;
+  hiddenSp[s.dexn]=1;delete owned[s.species];delete hunt[s.species];
+  await saveHidden();save();closeModal();
+  buildWorking();updProgress();buildChips();render();toast("Removido do total: "+s.species);
+}
+async function restoreHidden(){
+  const n=Object.keys(hidden).length+Object.keys(hiddenSp).length;
+  if(!n){toast("Nada removido para restaurar");return;}
+  if(!confirm("Restaurar "+n+" item(ns) que você removeu?"))return;
+  hidden={};hiddenSp={};await saveHidden();
+  buildWorking();updProgress();buildChips();render();toast("Removidos restaurados");
 }
 let pendingImg=null;
 function bindCustomImg(){
@@ -959,8 +990,9 @@ document.addEventListener("keydown",e=>{if(!ovBinder.classList.contains("on"))re
 
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));filterStatus=b.dataset.st;render();});
 let qT;document.getElementById("q").addEventListener("input",e=>{query=e.target.value;clearTimeout(qT);qT=setTimeout(render,120);});
-btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
-btnImport.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const j=JSON.parse(rd.result);owned=j.owned||j||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];userSpecies=j.userSpecies||[];hunt=j.hunt||{};hist=j.hist||[];await saveHunt();await saveHist();await store.set("extra_v1",JSON.stringify(extra));await store.set("usets_v1",JSON.stringify(updatedSets));await saveUsp();save();buildWorking();updProgress();buildChips();render();toast("Progresso importado");}catch(e){toast("Arquivo inválido");}};rd.readAsText(f);};inp.click();};
+btnExport.onclick=()=>{const blob=new Blob([JSON.stringify({v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist,hidden,hiddenSp},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="illustration-rare-dex.json";a.click();toast("Progresso exportado");};
+document.getElementById("btnRestore").onclick=()=>{moreMenu.classList.remove("on");restoreHidden();};
+btnImport.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const j=JSON.parse(rd.result);owned=j.owned||j||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];userSpecies=j.userSpecies||[];hunt=j.hunt||{};hist=j.hist||[];hidden=j.hidden||{};hiddenSp=j.hiddenSp||{};await saveHunt();await saveHist();await saveHidden();await store.set("extra_v1",JSON.stringify(extra));await store.set("usets_v1",JSON.stringify(updatedSets));await saveUsp();save();buildWorking();updProgress();buildChips();render();toast("Progresso importado");}catch(e){toast("Arquivo inválido");}};rd.readAsText(f);};inp.click();};
 btnReset.onclick=()=>{if(confirm("Zerar o progresso marcado? (Os sets atualizados continuam.)")){owned={};custom={};save();updProgress();buildChips();render();toast("Progresso zerado");}};
 document.getElementById("foot").innerHTML=`<b><span id="footTot">${TOTAL}</span> Pokémon</b> com carta Alt Art · IR · SIR catalogada. Fonte: dataset comunitário Pokémon TCG (GitHub).<br>Este site se atualiza sozinho toda semana via GitHub Actions. O botão <b>Atualizar agora</b> busca sets novíssimos na hora. Seu progresso fica salvo neste navegador/dispositivo — use <b>Exportar/Importar</b> para levar a outro aparelho.`;
 
@@ -1008,7 +1040,7 @@ const FB_CONFIG={
 let fbAuth=null,fbDb=null,fbUser=null,fbDoc=null,fbUnsub=null;
 let cloudReady=false,applyingRemote=false,pushT=null,lastPushJson="";
 const CLIENT_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
-function syncState(){return {v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist};}
+function syncState(){return {v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist,hidden,hiddenSp};}
 function uniqBy(arr,keyf){const seen=new Set(),out=[];(arr||[]).forEach(x=>{const k=keyf(x);if(!seen.has(k)){seen.add(k);out.push(x);}});return out;}
 function mergeStates(a,b){
   a=a||{};b=b||{};
@@ -1020,13 +1052,16 @@ function mergeStates(a,b){
   const userSpecies=uniqBy([...(a.userSpecies||[]),...(b.userSpecies||[])],u=>u.dexn);
   const histMap={};[...(a.hist||[]),...(b.hist||[])].forEach(e=>{if(e&&e.d)histMap[e.d]=e;});
   const hist=Object.values(histMap).sort((x,y)=>x.d<y.d?-1:1);
-  return {v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist};
+  const hidden={...(a.hidden||{}),...(b.hidden||{})};
+  const hiddenSp={...(a.hiddenSp||{}),...(b.hiddenSp||{})};
+  return {v:5,owned,custom,extra,updatedSets,userSpecies,hunt,hist,hidden,hiddenSp};
 }
 async function applyState(j){
   applyingRemote=true;
   try{
     owned=j.owned||{};custom=j.custom||{};extra=j.extra||[];updatedSets=j.updatedSets||[];
     userSpecies=j.userSpecies||[];hunt=j.hunt||{};hist=j.hist||[];
+    hidden=j.hidden||{};hiddenSp=j.hiddenSp||{};
     await store.set("owned_v1",JSON.stringify(owned));
     await store.set("custom_v1",JSON.stringify(custom));
     await store.set("extra_v1",JSON.stringify(extra));
@@ -1034,6 +1069,8 @@ async function applyState(j){
     await store.set("usp_v1",JSON.stringify(userSpecies));
     await store.set("hunt_v1",JSON.stringify(hunt));
     await store.set("hist_v1",JSON.stringify(hist));
+    await store.set("hidden_v1",JSON.stringify(hidden));
+    await store.set("hiddensp_v1",JSON.stringify(hiddenSp));
     buildWorking();updProgress();buildChips();render();
   }finally{applyingRemote=false;}
 }
@@ -1113,6 +1150,8 @@ function initSync(){
   userSpecies=parse(await store.get("usp_v1"),[]);
   hunt=parse(await store.get("hunt_v1"),{});
   hist=parse(await store.get("hist_v1"),[]);
+  hidden=parse(await store.get("hidden_v1"),{});
+  hiddenSp=parse(await store.get("hiddensp_v1"),{});
   // Higienização: versões antigas do site gravaram no navegador cartas fora do
   // escopo atual (douradas, Full Art ex etc. vindas do Atualizar). Mantém apenas
   // IR/SIR e o que você adicionou de propósito pela biblioteca (u:1).
