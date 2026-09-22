@@ -268,6 +268,82 @@ header{background:linear-gradient(180deg,rgba(246,240,228,.97),rgba(246,240,228,
 .pocket.art{background:radial-gradient(circle at 50% 38%,#f3ecd9,#e6dcc2)}
 .pocket.empty{background:repeating-linear-gradient(45deg,#efe6d0,#efe6d0 6px,#e8ddc4 6px,#e8ddc4 12px);border-color:var(--line)}
 .pnum{color:#4a4026;background:#ffffffb3}
+/* ===== EXPORTAR PDF — Álbum de Campo ===== */
+.pdfbtn{margin-left:auto;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:7px 12px;font:600 13px var(--disp);cursor:pointer}
+.pdfbtn:hover{border-color:var(--gold);color:var(--gold)}
+#pdfOpts{position:fixed;inset:0;z-index:120;display:none;place-items:center;background:#1a140baa;backdrop-filter:blur(3px);padding:16px}
+#pdfOpts.on{display:grid}
+.pdfcard{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:22px;width:min(440px,94vw);box-shadow:0 20px 60px #0006;font-family:var(--disp);color:var(--ink)}
+.pdfcard h3{font:600 20px var(--title);margin:0 0 4px}
+.pdfcard>p{margin:0 0 6px;color:var(--ink2);font-size:13px}
+.pdfcard label{display:block;font-size:12px;font-weight:600;margin:13px 0 5px;color:var(--ink2)}
+.pdfcard input[type=text]{width:100%;padding:9px 11px;border:1px solid var(--line2);border-radius:9px;background:var(--bg2);color:var(--ink);font:inherit;box-sizing:border-box}
+.pdfseg{display:flex;gap:8px}
+.pdfseg button{flex:1;padding:9px;border:1px solid var(--line2);border-radius:9px;background:var(--bg2);color:var(--ink2);cursor:pointer;font:600 12px var(--disp)}
+.pdfseg button.sel{background:var(--gold);border-color:var(--gold);color:#fff}
+.pdfact{display:flex;gap:10px;margin-top:20px}
+.pdfact button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);color:var(--ink);font:600 14px var(--disp);cursor:pointer}
+.pdfact .go{background:var(--gold);border-color:var(--gold);color:#fff}
+#pdfLoad{position:fixed;inset:0;z-index:130;display:none;place-items:center;background:#0f0b06e0;color:#f3ead4;font-family:var(--disp)}
+#pdfLoad.on{display:grid}
+.pdfload-in{text-align:center}
+.pdfload-in .spin{width:44px;height:44px;border:4px solid #ffffff33;border-top-color:#d8a24e;border-radius:50%;margin:0 auto 16px;animation:pdfspin 1s linear infinite}
+@keyframes pdfspin{to{transform:rotate(360deg)}}
+#printRoot{position:fixed;left:-10000px;top:0;width:190mm;font-family:"Inter",system-ui,sans-serif;color:#2b2419;background:#f6efdd}
+#printRoot *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+.ppage{background:#f6efdd;padding:6mm 4mm;position:relative}
+.ptitle{font-family:"Fraunces",Georgia,serif}
+.pfoot{text-align:center;font-size:8pt;color:#7a6a45;letter-spacing:.04em;padding-top:3mm}
+.pcover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:2px solid #cbbc95;border-radius:6mm;min-height:270mm}
+.pcover .kick{letter-spacing:.34em;font-size:10pt;color:#a9772b;font-weight:700;text-transform:uppercase}
+.pcover h1{font-family:"Fraunces",Georgia,serif;font-size:36pt;margin:6mm 0 3mm;font-weight:700;line-height:1.02}
+.pcover .by{font-family:"Fraunces",Georgia,serif;font-style:italic;font-size:16pt;color:#5a4d34;margin-bottom:9mm}
+.pseal{width:50mm;height:50mm;border-radius:50%;border:2px solid #a9772b;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 2.6mm #f6efdd,inset 0 0 0 3mm #a9772b44;margin:1mm 0 8mm}
+.pseal .pct{font-family:"Fraunces",Georgia,serif;font-size:28pt;font-weight:700;color:#a9772b;line-height:1}
+.pseal .sub{font-size:8.5pt;color:#5a4d34;margin-top:1.5mm}
+.pbadges{display:flex;flex-wrap:wrap;gap:4mm 5mm;justify-content:center;max-width:155mm}
+.pbadge{width:20mm;text-align:center;font-size:7.5pt;color:#5a4d34}
+.pbadge .disc{width:12mm;height:12mm;border-radius:50%;margin:0 auto 1.4mm;border:1.4px solid #00000022;position:relative;overflow:hidden;background:#e7dcc0}
+.pbadge .fill{position:absolute;left:0;right:0;bottom:0}
+.pbadge .rn{font-weight:700;color:#2b2419}
+.pcover .date{margin-top:11mm;font-size:9pt;color:#7a6a45}
+.psum h2{font-family:"Fraunces",Georgia,serif;font-size:20pt;margin:0 0 5mm}
+.pbarrow{display:flex;align-items:center;gap:3mm;margin:2.6mm 0;font-size:9.5pt}
+.pbarrow .lab{width:24mm;font-weight:600}
+.pbarrow .trk{flex:1;height:4mm;background:#e7dcc0;border-radius:2mm;overflow:hidden}
+.pbarrow .fil{height:100%;border-radius:2mm}
+.pbarrow .num{width:28mm;text-align:right;color:#5a4d34;font-size:8.5pt}
+.pgems{margin-top:9mm}
+.pgems h3{font-family:"Fraunces",Georgia,serif;font-size:14pt;margin:0 0 3mm;color:#a9772b}
+.pgemrow{display:flex;gap:4mm}
+.pgem{flex:1;text-align:center;font-size:8pt}
+.pgem img{width:100%;height:auto;border-radius:2mm;border:1px solid #cbbc95}
+.pgem .gn{font-weight:600;margin-top:1.5mm}
+.pgem .gv{color:#a9772b;font-weight:700}
+.pregion .rhd{display:flex;align-items:baseline;gap:4mm;border-bottom:1.5px solid #cbbc95;padding-bottom:2mm;margin-bottom:4mm}
+.pregion .rprog{margin-left:auto;font-size:9pt;color:#5a4d34}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+.ppk{text-align:center}
+.ppk .fr{border:1px solid #cbbc95;border-radius:2.4mm;background:#fbf7ec;padding:2mm;position:relative}
+.ppk.have .fr{border-color:#a9772b;box-shadow:0 0 0 .5mm #a9772b33}
+.ppk img{width:100%;height:auto;max-height:64mm;object-fit:contain;display:block;margin:auto}
+.ppk img.ghost{filter:grayscale(1);opacity:.3}
+.ppk .cap{font-size:7.5pt;margin-top:1.4mm;line-height:1.15}
+.ppk .cap .n{font-weight:700;color:#2b2419}
+.ppk .cap .nm{font-family:"Fraunces",Georgia,serif;font-style:italic;color:#5a4d34}
+.ppk .tick{position:absolute;top:1mm;right:1mm;width:5mm;height:5mm;border-radius:50%;background:#a9772b;color:#fff;font-size:7pt;display:flex;align-items:center;justify-content:center;z-index:2}
+.ppk .cback-mini{aspect-ratio:.72;display:flex;align-items:center;justify-content:center;color:#b7a677;font-size:8pt;background:#efe7d2;border-radius:1.6mm}
+@media print{
+  @page{size:A4;margin:9mm}
+  html,body{background:#fff!important}
+  body.printing>*:not(#printRoot){display:none!important}
+  #printRoot{position:static;left:0;top:0;width:auto;display:block!important}
+  .ppage{break-after:page;page-break-after:always}
+  .ppage:last-child{break-after:auto;page-break-after:auto}
+  .ppk{break-inside:avoid;page-break-inside:avoid}
+  .pgems{break-inside:avoid}
+  .pfoot{position:fixed;bottom:2mm;left:0;right:0}
+}
 </style></head><body>
 <header><div class="hd">
   <div class="brand"><span class="eyebrow">Alt Art · IR · SIR</span><span class="title">Illustration Rare <b>Dex</b></span></div>
@@ -323,6 +399,7 @@ header{background:linear-gradient(180deg,rgba(246,240,228,.97),rgba(246,240,228,
   <div class="binderbar">
     <select id="binderRegion" class="bindersel"></select>
     <div class="bindernav"><button id="bPrev" class="bnav" aria-label="Página anterior">◀</button><span id="bPage" class="bpage"></span><button id="bNext" class="bnav" aria-label="Próxima página">▶</button></div>
+    <button id="btnPdf" class="pdfbtn" title="Gerar um álbum em PDF para guardar ou compartilhar">🖨️ Exportar PDF</button>
   </div>
   <div class="binderscroll"><div class="binderpage" id="binderPage"><div class="brings"></div><div class="bgrid" id="bgrid"></div></div></div>
   <div class="pnote" id="binderInfo" style="text-align:center;margin-top:8px"></div>
@@ -1168,4 +1245,102 @@ function initSync(){
   try{snapshotHist();}catch(_){}
   try{initSync();}catch(e){console.log("sync off:",e);}
 })();
+/* ===== EXPORTAR PDF — Álbum de Campo ===== */
+const SITE_URL="avaiano9.github.io/illustration-rare-dex";
+let pdfScope="all",pdfMode="full";
+const _pesc=s=>String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+function _rcol(r){return (getComputedStyle(document.documentElement).getPropertyValue("--r-"+r)||"").trim()||"#a9772b";}
+function _regionStat(r,byd){const R=REGION_RANGES[r];let o=0,t=0;for(let n=R[0];n<=R[1];n++){const sp=byd.get(n);if(sp){t++;if(isOwned(sp))o++;}}return{o,t,p:t?Math.round(o/t*100):0};}
+function _regionOf(dexn){for(const r in REGION_RANGES){const R=REGION_RANGES[r];if(dexn>=R[0]&&dexn<=R[1])return r;}return "";}
+function openPdfOpts(){
+  let el=document.getElementById("pdfOpts");
+  if(!el){
+    el=document.createElement("div");el.id="pdfOpts";
+    el.innerHTML=`<div class="pdfcard">
+      <h3>Exportar álbum em PDF</h3>
+      <p>Um álbum de campo pra guardar ou compartilhar. Na janela que abrir, escolha <b>“Salvar como PDF”</b>.</p>
+      <label>Seu nome (aparece na capa)</label>
+      <input type="text" id="pdfName" placeholder="Treinador(a)" maxlength="40">
+      <label>O que incluir</label>
+      <div class="pdfseg" id="pdfModeSeg"><button data-mode="full" class="sel">Álbum completo</button><button data-mode="owned">Só o que eu tenho</button></div>
+      <label>Regiões</label>
+      <div class="pdfseg" id="pdfScopeSeg"><button data-scope="all" class="sel">Todas</button><button data-scope="region">Só a atual</button></div>
+      <div class="pdfact"><button id="pdfCancel">Cancelar</button><button id="pdfGo" class="go">Gerar PDF</button></div>
+    </div>`;
+    document.body.appendChild(el);
+    el.addEventListener("click",e=>{if(e.target===el)el.classList.remove("on");});
+    el.querySelector("#pdfModeSeg").onclick=e=>{const b=e.target.closest("[data-mode]");if(!b)return;pdfMode=b.dataset.mode;el.querySelectorAll("#pdfModeSeg button").forEach(x=>x.classList.toggle("sel",x===b));};
+    el.querySelector("#pdfScopeSeg").onclick=e=>{const b=e.target.closest("[data-scope]");if(!b)return;pdfScope=b.dataset.scope;el.querySelectorAll("#pdfScopeSeg button").forEach(x=>x.classList.toggle("sel",x===b));};
+    el.querySelector("#pdfCancel").onclick=()=>el.classList.remove("on");
+    el.querySelector("#pdfGo").onclick=()=>{el.classList.remove("on");genPdf(el.querySelector("#pdfName").value.trim());};
+  }
+  el.querySelector("#pdfScopeSeg [data-scope=region]").textContent="Só "+binderRegion;
+  const ni=el.querySelector("#pdfName");
+  if(!ni.value&&fbUser&&fbUser.displayName)ni.value=fbUser.displayName;
+  el.classList.add("on");
+}
+document.getElementById("btnPdf").onclick=openPdfOpts;
+
+function genPdf(name){
+  const byd=binderDexMap();
+  const regions=pdfScope==="region"?[binderRegion]:Object.keys(REGION_RANGES);
+  const RC={};regions.forEach(r=>RC[r]=_rcol(r));
+  let O=0,T=0;const rstats={};
+  regions.forEach(r=>{const s=_regionStat(r,byd);rstats[r]=s;O+=s.o;T+=s.t;});
+  const pct=T?Math.round(O/T*100):0;
+  let gems=[];
+  DATA.forEach(s=>{if(pdfScope==="region"&&_regionOf(s.dexn)!==binderRegion)return;if(!isOwned(s))return;const c=repCard(s);const v=priceOf(c);if(v!=null&&c&&c.img&&!c.placeholder)gems.push({nm:s.species,img:c.img,set:c.set||"",num:c.num||"",v});});
+  gems.sort((a,b)=>b.v-a.v);gems=gems.slice(0,4);
+  const imgTag=(c,cls)=>`<img class="${cls}" src="${c.img}" alt="${_pesc(c.name||"")}" data-fs="${_pesc(c.set||"")}" data-fn="${_pesc(c.num||"")}" onerror="imgFail(this)">`;
+
+  let html="";
+  html+=`<div class="ppage pcover"><div class="kick">Álbum de Campo</div>
+    <h1 class="ptitle">Illustration<br>Rare Dex</h1>
+    <div class="by">de ${_pesc(name||"Treinador(a)")}</div>
+    <div class="pseal"><div class="pct">${pct}%</div><div class="sub">${O} de ${T} espécies</div></div>
+    <div class="pbadges">${regions.map(r=>{const s=rstats[r];return `<div class="pbadge"><div class="disc"><div class="fill" style="height:${s.p}%;background:${RC[r]}"></div></div><div>${r}</div><div class="rn">${s.o}/${s.t}</div></div>`;}).join("")}</div>
+    <div class="date">Gerado em ${new Date().toLocaleDateString("pt-BR")} · ${SITE_URL}</div></div>`;
+
+  html+=`<div class="ppage psum"><h2 class="ptitle">Progresso por região</h2>`;
+  regions.forEach(r=>{const s=rstats[r];html+=`<div class="pbarrow"><span class="lab">${r}</span><span class="trk"><span class="fil" style="width:${s.p}%;background:${RC[r]}"></span></span><span class="num">${s.o}/${s.t} · ${s.p}%</span></div>`;});
+  if(gems.length)html+=`<div class="pgems"><h3 class="ptitle">Joias da coleção</h3><div class="pgemrow">${gems.map(g=>`<div class="pgem">${imgTag(g,"")}<div class="gn">${_pesc(g.nm)}</div><div class="gv">${fmtMoney(g.v)}</div></div>`).join("")}</div></div>`;
+  html+=`</div>`;
+
+  regions.forEach(r=>{
+    const R=REGION_RANGES[r],s=rstats[r];
+    let list=[];for(let n=R[0];n<=R[1];n++){const sp=byd.get(n);if(!sp)continue;if(pdfMode==="owned"&&!isOwned(sp))continue;list.push(sp);}
+    if(!list.length)return;
+    for(let i=0;i<list.length;i+=9){
+      const chunk=list.slice(i,i+9);
+      html+=`<div class="ppage pregion">`;
+      html+=i===0?`<div class="rhd"><h2 class="ptitle" style="color:${RC[r]}">${r}</h2><span class="rprog">${s.o} de ${s.t} capturados · ${s.p}%</span></div>`
+                 :`<div class="rhd"><h2 class="ptitle" style="color:${RC[r]};font-size:14pt">${r} <span style="font-size:9pt;color:#7a6a45">(continuação)</span></h2></div>`;
+      html+=`<div class="pgrid">`;
+      chunk.forEach(sp=>{const own=isOwned(sp),c=repCard(sp)||{},has=c.img&&!c.placeholder;
+        html+=`<div class="ppk ${own?"have":""}"><div class="fr">${own?'<div class="tick">✓</div>':""}${has?imgTag(c,own?"":"ghost"):'<div class="cback-mini">arte rara</div>'}</div><div class="cap"><span class="n">${sp.dex}</span> <span class="nm">${_pesc(sp.species)}</span></div></div>`;});
+      html+=`</div></div>`;
+    }
+  });
+  html+=`<div class="pfoot">Illustration Rare Dex · ${SITE_URL}</div>`;
+
+  let root=document.getElementById("printRoot");
+  if(!root){root=document.createElement("div");root.id="printRoot";document.body.appendChild(root);}
+  root.innerHTML=html;
+
+  let load=document.getElementById("pdfLoad");
+  if(!load){load=document.createElement("div");load.id="pdfLoad";load.innerHTML='<div class="pdfload-in"><div class="spin"></div><div id="pdfLoadTxt">Preparando seu álbum…</div></div>';document.body.appendChild(load);}
+  load.classList.add("on");
+  const txt=document.getElementById("pdfLoadTxt");
+  const imgs=[...root.querySelectorAll("img")];const total=imgs.length||1;let done=0;
+  const tick=()=>{done++;if(txt)txt.textContent=`Preparando seu álbum… ${done}/${total} imagens`;};
+  const waitImg=im=>new Promise(res=>{const to=setTimeout(res,9000);const fin=()=>{clearTimeout(to);tick();res();};if(im.complete&&im.naturalWidth>0){fin();return;}im.addEventListener("load",fin,{once:true});im.addEventListener("error",fin,{once:true});});
+  const hard=new Promise(res=>setTimeout(res,total>200?22000:12000));
+  Promise.race([Promise.all(imgs.map(waitImg)),hard]).then(()=>{
+    load.classList.remove("on");
+    document.body.classList.add("printing");
+    const cleanup=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",cleanup);};
+    window.addEventListener("afterprint",cleanup);
+    setTimeout(()=>{try{window.print();}catch(_){cleanup();}},150);
+  });
+}
 </script></body></html>
